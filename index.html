@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEUROLAB - Elite Brain Games & Cognitive Training Suite</title>
+  <meta name="description" content="Master your cognitive potential with 12 scientifically grounded brain training games: Dual N-Back, Ayumu Chimp Test, Stroop Clash, 2048, Schulte Grid, and 3D Mental Rotation.">
+  <meta name="theme-color" content="#05070c">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/jpeg" href="assets/brain-logo.jpg">
+
+  <!-- Google Fonts: Plus Jakarta Sans, Outfit, Space Grotesk, Syne, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+
+  <!-- Core Stylesheets -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/games.css">
+</head>
+<body>
+
+  <!-- Cyber Perspective Grid Texture -->
+  <div class="cyber-grid-overlay"></div>
+
+  <!-- Ambient Synaptic Background -->
+  <canvas id="particles-canvas"></canvas>
+  <div class="ambient-glow ambient-glow-1"></div>
+  <div class="ambient-glow ambient-glow-2"></div>
+  <div class="ambient-glow ambient-glow-3"></div>
+  <div class="ambient-glow ambient-glow-4"></div>
+
+  <!-- Confetti Victory Layer -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="site-header">
+      <div class="brand">
+        <div class="brand-logo-wrap">
+          <img src="assets/brain-logo.jpg" alt="NeuroLab Logo" class="brand-logo-img">
+        </div>
+        <div class="brand-text-wrap">
+          <div class="brand-title">
+            NEUROLAB
+            <span class="brand-badge">PRO COGNITIVE</span>
+          </div>
+          <span class="brand-tagline">Advanced Neuro-Performance Suite</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="header-stat-pill" title="Neuro Quotient (Estimated Cognitive Index)">
+          <span class="stat-icon-glow">🧠</span>
+          <span>NQ <strong id="header-nq" style="color:var(--cyan-primary)">1040</strong></span>
+        </div>
+
+        <div class="header-stat-pill" title="Daily Training Streak">
+          <span>🔥</span>
+          <span>Streak <strong id="header-streak" style="color:var(--amber-primary)">1</strong>d</span>
+        </div>
+
+        <button class="btn-icon" id="btn-sound-toggle" title="Toggle Sound (Mute/Unmute)">
+          <span id="sound-icon-glyph">🔊</span>
+        </button>
+
+        <button class="btn-primary" id="btn-daily-workout">
+          <span>⚡ Daily Workout</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Hero & Cognitive Dashboard -->
+    <section class="hero-dashboard" id="hero-section">
+      <div class="glass-panel hero-welcome-card">
+        <div>
+          <div class="hero-kicker">
+            <span class="hero-kicker-dot"></span>
+            <span>CLINICAL COGNITIVE TELEMETRY • 12 LAB-GRADE DRILLS</span>
+          </div>
+          <h1 class="hero-title">
+            Unlock Peak <span>Neuroplasticity</span> & Working Memory
+          </h1>
+          <p class="hero-desc">
+            Challenge your working memory, reaction latency, selective attention, and spatial fluid IQ with 12 lab-grade cognitive games inspired by modern neurobiology.
+          </p>
+
+          <!-- Daily Goal Progress Gauge -->
+          <div class="hero-goal-bar-wrap">
+            <div class="hero-goal-bar-header">
+              <span style="color:var(--text-secondary); display:flex; align-items:center; gap:0.4rem;">
+                <span>🎯 Daily Workout Target</span>
+              </span>
+              <span id="hero-goal-pct" style="color:var(--cyan-primary); font-family:var(--font-mono);">0%</span>
+            </div>
+            <div class="hero-goal-bar-track">
+              <div class="hero-goal-bar-fill" id="hero-goal-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-stats-row">
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" id="hero-nq">1040</span>
+            <span class="hero-stat-label">Brain Quotient</span>
+          </div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" id="hero-streak">1 <span style="font-size:1.1rem; color:var(--amber-primary)">🔥</span></span>
+            <span class="hero-stat-label">Daily Streak</span>
+          </div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" id="hero-games-played">0</span>
+            <span class="hero-stat-label">Drills Completed</span>
+          </div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" id="hero-daily-progress" style="font-size:1.45rem; color:var(--emerald-primary);">0 / 3</span>
+            <span class="hero-stat-label">Today's Goal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Radar Chart Card -->
+      <div class="glass-panel radar-card">
+        <div class="radar-header">
+          <span class="radar-title">Cognitive Radar</span>
+          <span class="radar-badge">5 DOMAINS</span>
+        </div>
+        <div class="radar-canvas-wrap">
+          <canvas id="brain-radar-chart"></canvas>
+        </div>
+        <div class="radar-chips-row">
+          <span class="radar-chip" title="Working Memory"><span class="radar-chip-dot" style="background:var(--cat-memory)"></span>Mem: <strong id="chip-val-memory">60</strong></span>
+          <span class="radar-chip" title="Processing Speed"><span class="radar-chip-dot" style="background:var(--cat-speed)"></span>Spd: <strong id="chip-val-speed">60</strong></span>
+          <span class="radar-chip" title="Executive Focus"><span class="radar-chip-dot" style="background:var(--cat-focus)"></span>Foc: <strong id="chip-val-focus">60</strong></span>
+          <span class="radar-chip" title="Problem Solving"><span class="radar-chip-dot" style="background:var(--cat-logic)"></span>Log: <strong id="chip-val-logic">60</strong></span>
+          <span class="radar-chip" title="3D Spatial IQ"><span class="radar-chip-dot" style="background:var(--cat-spatial)"></span>Spa: <strong id="chip-val-spatial">60</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category Filter Tabs & Search Bar -->
+    <section class="filter-section" id="filter-section">
+      <div class="category-tabs">
+        <button class="tab-btn active" data-category="all">
+          <span>All Games (12)</span>
+        </button>
+        <button class="tab-btn" data-category="memory">
+          <span class="tab-dot memory"></span>
+          <span>Memory (4)</span>
+        </button>
+        <button class="tab-btn" data-category="focus">
+          <span class="tab-dot focus"></span>
+          <span>Focus (1)</span>
+        </button>
+        <button class="tab-btn" data-category="speed">
+          <span class="tab-dot speed"></span>
+          <span>Speed (2)</span>
+        </button>
+        <button class="tab-btn" data-category="logic">
+          <span class="tab-dot logic"></span>
+          <span>Logic (4)</span>
+        </button>
+        <button class="tab-btn" data-category="spatial">
+          <span class="tab-dot spatial"></span>
+          <span>Spatial (1)</span>
+        </button>
+      </div>
+
+      <!-- Instant Search Filter -->
+      <div class="search-box-wrap">
+        <span class="search-icon-svg">🔍</span>
+        <input type="text" id="game-search-input" class="search-input" placeholder="Search 12 cognitive drills..." autocomplete="off">
+        <button id="search-clear-btn" class="search-clear-btn" title="Clear Search">✕</button>
+      </div>
+    </section>
+
+    <!-- Games Grid Catalog Section -->
+    <main class="catalog-section" id="catalog-section">
+      <div class="games-grid" id="games-grid">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </main>
+
+    <!-- Game Arena (Active Play Stage) -->
+    <section class="game-arena" id="game-arena">
+      <div class="arena-hud">
+        <div class="arena-hud-left">
+          <button class="btn-arena-hub" id="btn-arena-exit" title="Return to Games Catalog">
+            ❮ Hub
+          </button>
+          <div class="arena-game-info">
+            <h2 class="arena-game-title" id="arena-game-title">Game Title</h2>
+            <span class="arena-game-cat" id="arena-game-cat">Category</span>
+          </div>
+        </div>
+
+        <div class="arena-hud-center">
+          <div class="hud-stat-box">
+            <span class="hud-stat-label">Personal Best</span>
+            <span class="hud-stat-val" id="arena-high-score">—</span>
+          </div>
+        </div>
+
+        <div class="arena-hud-right">
+          <button class="btn-icon" id="btn-arena-rules" title="Game Rules & Neuroscience">
+            ℹ️
+          </button>
+          <button class="btn-icon" id="btn-arena-restart" title="Restart Game">
+            🔄
+          </button>
+        </div>
+      </div>
+
+      <!-- Interactive Arena Stage Container -->
+      <div class="arena-stage" id="arena-stage">
+        <!-- Dynamic game engine mounts here -->
+      </div>
+    </section>
+  </div>
+
+  <!-- Rules / Tutorial Modal -->
+  <div class="modal-overlay" id="rules-modal">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="btn-close-rules">✕</button>
+      <div class="modal-header">
+        <h3 class="modal-title" id="rules-modal-title">Game Instructions</h3>
+      </div>
+      <div class="modal-body" id="rules-modal-body">
+        <!-- Dynamic content inserted by app.js -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btn-rules-start">Start Drill ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory / Game Summary Modal -->
+  <div class="modal-overlay" id="summary-modal">
+    <div class="modal-card" style="text-align:center;">
+      <div class="modal-header">
+        <div style="font-size:3rem; margin-bottom:0.5rem;" id="summary-badge-icon">🎉</div>
+        <h3 class="modal-title" id="summary-title">Drill Completed</h3>
+        <div id="summary-new-record" style="display:none; color:var(--amber-primary); font-weight:800; font-size:0.95rem; margin-top:0.25rem;">
+          🌟 NEW PERSONAL BEST!
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div style="display:flex; justify-content:center; align-items:baseline; gap:0.5rem; margin:1.5rem 0 0.5rem 0;">
+          <span style="font-size:1.1rem; color:var(--text-muted);">Score:</span>
+          <span style="font-family:var(--font-mono); font-size:3.2rem; font-weight:800; color:#ffffff;" id="summary-score">0</span>
+        </div>
+        <div style="font-family:var(--font-display); font-size:1.25rem; color:var(--cyan-primary); font-weight:800; margin-bottom:0.5rem;" id="summary-accuracy">
+          100%
+        </div>
+        <p id="summary-details" style="color:var(--text-secondary); font-size:0.92rem; margin-bottom:1.25rem;"></p>
+        <div id="summary-nq-change" style="font-size:0.92rem; color:var(--emerald-primary); font-weight:700;">
+          Current NQ: 1040
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content:center; gap:1.25rem;">
+        <button class="btn-secondary" id="btn-summary-replay">Play Again</button>
+        <button class="btn-primary" id="btn-summary-next">Back to Hub ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Layer -->
+  <div id="toast-container"></div>
+
+  <!-- Single High Performance Bundle (Audio, Confetti, State, Radar, Particles, 12 Games, App) -->
+  <script src="js/neurolab.bundle.js"></script>
+</body>
+</html>

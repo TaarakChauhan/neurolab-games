@@ -1,0 +1,312 @@
+/* ==========================================================================
+   NEUROLAB - Elite Cognitive Training Suite
+   Design System & Core Foundations — Next-Gen Cyber-Bioluminescent Edition
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Color Palette - Ultra-Deep Obsidian & High-Chroma Bioluminescent Accents */
+  --bg-primary: #05070c;
+  --bg-secondary: #0a0e17;
+  --bg-tertiary: #101624;
+  --bg-surface: rgba(13, 19, 33, 0.72);
+  --bg-surface-elevated: rgba(19, 28, 48, 0.82);
+  --bg-glass: rgba(10, 15, 26, 0.65);
+  
+  /* Specular & Glass Borders */
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-bright: rgba(255, 255, 255, 0.18);
+  --border-glow: rgba(0, 245, 255, 0.35);
+
+  /* Jewel Cognitive Tones */
+  --cyan-primary: #00f5ff;
+  --cyan-deep: #0088cc;
+  --cyan-glow: rgba(0, 245, 255, 0.45);
+  --cyan-soft: rgba(0, 245, 255, 0.12);
+
+  --violet-primary: #9d65ff;
+  --violet-deep: #6366f1;
+  --violet-glow: rgba(157, 101, 255, 0.45);
+  --violet-soft: rgba(157, 101, 255, 0.12);
+
+  --emerald-primary: #10b981;
+  --emerald-deep: #059669;
+  --emerald-glow: rgba(16, 185, 129, 0.45);
+  --emerald-soft: rgba(16, 185, 129, 0.12);
+
+  --amber-primary: #ffaa00;
+  --amber-deep: #d97706;
+  --amber-glow: rgba(255, 170, 0, 0.45);
+  --amber-soft: rgba(255, 170, 0, 0.12);
+
+  --rose-primary: #ff3366;
+  --rose-deep: #e11d48;
+  --rose-glow: rgba(255, 51, 102, 0.45);
+  --rose-soft: rgba(255, 51, 102, 0.12);
+
+  --crimson-alert: #ef4444;
+
+  /* Cognitive Categories */
+  --cat-memory: #9d65ff;
+  --cat-speed: #00f5ff;
+  --cat-focus: #ff3366;
+  --cat-logic: #10b981;
+  --cat-spatial: #ffaa00;
+
+  /* Typography */
+  --font-main: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', 'Syne', sans-serif;
+  --font-accent: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+  /* Text Colors */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-highlight: #ffffff;
+
+  /* Multi-Layer Shadows & Radial Radiance */
+  --glow-cyan: 0 0 35px rgba(0, 245, 255, 0.35);
+  --glow-violet: 0 0 35px rgba(157, 101, 255, 0.35);
+  --glow-rose: 0 0 35px rgba(255, 51, 102, 0.35);
+  --shadow-card: 0 16px 40px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-elevated: 0 24px 60px -15px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.1);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-bounce: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Base Reset & Smooth Rendering */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  overflow-x: hidden;
+  line-height: 1.55;
+  selection-background-color: var(--cyan-primary);
+  selection-color: #05070c;
+}
+
+::selection {
+  background: var(--cyan-primary);
+  color: #05070c;
+}
+
+/* Cyber Perspective Grid Overlay */
+.cyber-grid-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 245, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px;
+  opacity: 0.85;
+}
+
+/* Background Synaptic Particle Canvas */
+#particles-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+}
+
+/* Ambient Radial Glow Gradients with Floating Motion */
+.ambient-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(140px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.22;
+  will-change: transform, opacity;
+}
+
+.ambient-glow-1 {
+  top: -12%;
+  left: -8%;
+  width: 680px;
+  height: 680px;
+  background: radial-gradient(circle, var(--cyan-primary), rgba(0, 136, 204, 0.4) 40%, transparent 70%);
+  animation: floatOrb1 20s ease-in-out infinite alternate;
+}
+
+.ambient-glow-2 {
+  bottom: 0%;
+  right: -8%;
+  width: 750px;
+  height: 750px;
+  background: radial-gradient(circle, var(--violet-primary), rgba(99, 102, 241, 0.4) 40%, transparent 70%);
+  animation: floatOrb2 24s ease-in-out infinite alternate;
+}
+
+.ambient-glow-3 {
+  top: 40%;
+  right: 15%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--rose-primary), transparent 70%);
+  opacity: 0.14;
+  animation: floatOrb3 18s ease-in-out infinite alternate;
+}
+
+.ambient-glow-4 {
+  bottom: 15%;
+  left: 5%;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, var(--amber-primary), transparent 70%);
+  opacity: 0.12;
+  animation: floatOrb4 22s ease-in-out infinite alternate;
+}
+
+@keyframes floatOrb1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.1); }
+  100% { transform: translate(-30px, 70px) scale(0.95); }
+}
+
+@keyframes floatOrb2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-70px, -50px) scale(1.08); }
+  100% { transform: translate(40px, -30px) scale(0.92); }
+}
+
+@keyframes floatOrb3 {
+  0% { transform: translate(0, 0) scale(0.9); }
+  100% { transform: translate(-50px, 60px) scale(1.15); }
+}
+
+@keyframes floatOrb4 {
+  0% { transform: translate(0, 0) scale(1.1); }
+  100% { transform: translate(70px, -40px) scale(0.85); }
+}
+
+/* Glassmorphism Containers - Multi-layered depth */
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.12) 20%, 
+    rgba(0, 245, 255, 0.4) 50%, 
+    rgba(255, 255, 255, 0.12) 80%, 
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Common Keyframe Animations */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 245, 255, 0.25), inset 0 0 8px rgba(0, 245, 255, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(0, 245, 255, 0.65), inset 0 0 16px rgba(0, 245, 255, 0.35);
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+@keyframes scaleSuccess {
+  0% { transform: scale(0.92); opacity: 0; }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes holographicSweep {
+  0% { transform: translateX(-150%) rotate(25deg); }
+  100% { transform: translateX(250%) rotate(25deg); }
+}
+
+@keyframes beaconPing {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  70% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Custom Cyber Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyan-primary);
+  box-shadow: 0 0 12px var(--cyan-primary);
+}
+
+/* Confetti Overlay Canvas */
+#confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+}

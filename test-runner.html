@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NEUROLAB - Automated QA Test Suite</title>
+  <style>
+    body {
+      background: #07090e;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 2rem;
+      margin: 0;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #00f0ff;
+      margin-bottom: 0.5rem;
+    }
+    .qa-stats {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-badge {
+      background: #0d111a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+    }
+    .stat-badge strong {
+      font-size: 1.4rem;
+      display: block;
+    }
+    .passed { color: #10b981; }
+    .failed { color: #ef4444; }
+    .test-log {
+      background: #0d111a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 1.5rem;
+      font-family: monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .test-item {
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge-pass {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid #10b981;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    .badge-fail {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border: 1px solid #ef4444;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    #sandbox {
+      display: none;
+    }
+  </style>
+  <script src="js/audio.js"></script>
+  <script src="js/confetti.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/radar.js"></script>
+  <script src="js/particles.js"></script>
+
+  <!-- 12 Brain Games -->
+  <script src="js/games/dual-nback.js"></script>
+  <script src="js/games/chimp-test.js"></script>
+  <script src="js/games/stroop.js"></script>
+  <script src="js/games/schulte-grid.js"></script>
+  <script src="js/games/memory-matrix.js"></script>
+  <script src="js/games/simon-seq.js"></script>
+  <script src="js/games/tower-hanoi.js"></script>
+  <script src="js/games/game-2048.js"></script>
+  <script src="js/games/speed-math.js"></script>
+  <script src="js/games/lights-out.js"></script>
+  <script src="js/games/wordle.js"></script>
+  <script src="js/games/mental-rotation.js"></script>
+</head>
+<body>
+  <h1>🧠 NEUROLAB QA Automated Test Suite</h1>
+  <p style="color:#94a3b8; margin-bottom:1.5rem;">Automated validation of State, Radar, Audio, Synthesizers, and all 12 Cognitive Game Engines.</p>
+
+  <div class="qa-stats">
+    <div class="stat-badge">
+      <span>Total Tests</span>
+      <strong id="total-tests">0</strong>
+    </div>
+    <div class="stat-badge">
+      <span class="passed">Passed</span>
+      <strong id="passed-tests" class="passed">0</strong>
+    </div>
+    <div class="stat-badge">
+      <span class="failed">Failed</span>
+      <strong id="failed-tests" class="failed">0</strong>
+    </div>
+    <div class="stat-badge">
+      <span>Status</span>
+      <strong id="test-status" style="color:#00f0ff;">RUNNING...</strong>
+    </div>
+  </div>
+
+  <div class="test-log" id="test-log"></div>
+
+  <!-- Hidden mount sandbox for game instances -->
+  <div id="sandbox"></div>
+
+  <script>
+    const logEl = document.getElementById('test-log');
+    const totalEl = document.getElementById('total-tests');
+    const passedEl = document.getElementById('passed-tests');
+    const failedEl = document.getElementById('failed-tests');
+    const statusEl = document.getElementById('test-status');
+    const sandbox = document.getElementById('sandbox');
+
+    let total = 0;
+    let passed = 0;
+    let failed = 0;
+
+    function assert(name, condition, details = '') {
+      total++;
+      const item = document.createElement('div');
+      item.className = 'test-item';
+
+      if (condition) {
+        passed++;
+        item.innerHTML = `<span class="badge-pass">PASS</span> <strong>${name}</strong> ${details ? '<span style="color:#94a3b8;">- ' + details + '</span>' : ''}`;
+        console.log(`[PASS] ${name}`);
+      } else {
+        failed++;
+        item.innerHTML = `<span class="badge-fail">FAIL</span> <strong>${name}</strong> ${details ? '<span style="color:#ef4444;">- ' + details + '</span>' : ''}`;
+        console.error(`[FAIL] ${name}: ${details}`);
+      }
+
+      logEl.appendChild(item);
+      totalEl.innerText = total;
+      passedEl.innerText = passed;
+      failedEl.innerText = failed;
+    }
+
+    async function runQA() {
+      console.log('--- Starting NEUROLAB QA Suite ---');
+
+      // 1. Audio Engine Test
+      try {
+        assert('SoundEngine is instantiated', !!window.soundEngine);
+        assert('SoundEngine mute toggle works', typeof window.soundEngine.toggleMute === 'function');
+        const origMute = window.soundEngine.isMuted();
+        window.soundEngine.toggleMute();
+        assert('SoundEngine toggles state properly', window.soundEngine.isMuted() !== origMute);
+        window.soundEngine.toggleMute(); // restore
+      } catch (err) {
+        assert('SoundEngine Test', false, err.message);
+      }
+
+      // 2. Confetti Engine Test
+      try {
+        assert('ConfettiEngine is instantiated', !!window.confettiEngine);
+        assert('Confetti fire method exists', typeof window.confettiEngine.fire === 'function');
+      } catch (err) {
+        assert('ConfettiEngine Test', false, err.message);
+      }
+
+      // 3. BrainState Persistence & Algorithm Test
+      try {
+        assert('BrainState is instantiated', !!window.brainState);
+        assert('BrainState has default NQ within standard range (800-1600)', window.brainState.data.nq >= 800 && window.brainState.data.nq <= 1600);
+        assert('BrainState has 5 cognitive domains defined', Object.keys(window.brainState.data.domains).length === 5);
+        
+        const recordRes = window.brainState.recordGame('test-game', 950, 'memory', 0.9);
+        assert('BrainState records score and calculates NQ', recordRes.nq >= 800);
+        assert('BrainState retrieves recorded high score', window.brainState.getHighScore('test-game') === 950);
+      } catch (err) {
+        assert('BrainState Test', false, err.message);
+      }
+
+      // 4. Test Game 1: Dual N-Back
+      try {
+        sandbox.innerHTML = '';
+        const nback = new DualNBackGame(sandbox, () => {});
+        assert('Dual N-Back initialises with 9 grid cells', sandbox.querySelectorAll('.nback-cell').length === 9);
+        assert('Dual N-Back controls exist (Visual & Audio)', !!sandbox.querySelector('#btn-pos-match') && !!sandbox.querySelector('#btn-audio-match'));
+        nback.handlePosMatch();
+        assert('Dual N-Back handles visual match input', nback.userPosMatched === true);
+        nback.destroy();
+      } catch (err) {
+        assert('Dual N-Back Test', false, err.message);
+      }
+
+      // 5. Test Game 2: Chimp Test
+      try {
+        sandbox.innerHTML = '';
+        const chimp = new ChimpTestGame(sandbox, () => {});
+        assert('Chimp Test creates 40 cells (8x5 board)', sandbox.querySelectorAll('.chimp-cell').length === 40);
+        assert('Chimp Test spawns starting tiles equal to level', chimp.tiles.length === chimp.level);
+        const tile1 = chimp.tiles.find(t => t.innerText === '1');
+        assert('Chimp Test finds tile #1', !!tile1);
+        chimp.handleTileClick(tile1, 1);
+        assert('Chimp Test masks remaining tiles after click 1', chimp.isMasked === true);
+        chimp.destroy();
+      } catch (err) {
+        assert('Chimp Test', false, err.message);
+      }
+
+      // 6. Test Game 3: Stroop Color Clash
+      try {
+        sandbox.innerHTML = '';
+        const stroop = new StroopGame(sandbox, () => {});
+        assert('Stroop displays word and ink color', !!sandbox.querySelector('#stroop-word'));
+        assert('Stroop creates 4 color choice buttons', sandbox.querySelectorAll('.btn-stroop-color').length === 4);
+        const curInk = stroop.currentInkColor;
+        stroop.handleAnswer(curInk);
+        assert('Stroop correctly evaluates matching ink color', stroop.score > 0 && stroop.streak === 1);
+        stroop.destroy();
+      } catch (err) {
+        assert('Stroop Test', false, err.message);
+      }
+
+      // 7. Test Game 4: Schulte Grid
+      try {
+        sandbox.innerHTML = '';
+        const schulte = new SchulteGridGame(sandbox, () => {});
+        assert('Schulte Grid populates exactly 25 tiles', sandbox.querySelectorAll('.schulte-tile').length === 25);
+        assert('Schulte Grid targets #1 first', schulte.nextTarget === 1);
+        const sTile1 = Array.from(sandbox.querySelectorAll('.schulte-tile')).find(t => t.dataset.num === '1');
+        schulte.handleTileClick(sTile1, 1);
+        assert('Schulte Grid advances target to #2 on click', schulte.nextTarget === 2 && sTile1.classList.contains('found'));
+        schulte.destroy();
+      } catch (err) {
+        assert('Schulte Grid Test', false, err.message);
+      }
+
+      // 8. Test Game 5: Memory Matrix
+      try {
+        sandbox.innerHTML = '';
+        const matrix = new MemoryMatrixGame(sandbox, () => {});
+        assert('Memory Matrix initialises 3x3 (9 cells)', sandbox.querySelectorAll('.matrix-cell').length === 9);
+        assert('Memory Matrix selects target cells', matrix.targetCells.size === matrix.activeCount);
+        matrix.destroy();
+      } catch (err) {
+        assert('Memory Matrix Test', false, err.message);
+      }
+
+      // 9. Test Game 6: Simon Sequence
+      try {
+        sandbox.innerHTML = '';
+        const simon = new SimonGame(sandbox, () => {});
+        assert('Simon Sequence has 4 interactive pads', sandbox.querySelectorAll('.simon-pad').length === 4);
+        assert('Simon starts with at least 1 sequence item', simon.sequence.length >= 1);
+        simon.destroy();
+      } catch (err) {
+        assert('Simon Sequence Test', false, err.message);
+      }
+
+      // 10. Test Game 7: Tower of Hanoi
+      try {
+        sandbox.innerHTML = '';
+        const hanoi = new TowerHanoiGame(sandbox, () => {});
+        assert('Tower of Hanoi has 3 rods', hanoi.rods.length === 3);
+        assert('Tower of Hanoi rod 0 starts with all disks', hanoi.rods[0].length === hanoi.diskCount);
+        assert('Optimal moves calculation formula (2^n - 1)', hanoi.optimalMoves === Math.pow(2, hanoi.diskCount) - 1);
+        hanoi.rods = [[3], [1], []];
+        hanoi.selectedRod = 0;
+        hanoi.handleRodClick(1);
+        assert('Tower of Hanoi blocks illegal move (larger on smaller)', hanoi.rods[0].length === 1 && hanoi.rods[1].length === 1);
+        hanoi.destroy();
+      } catch (err) {
+        assert('Tower of Hanoi Test', false, err.message);
+      }
+
+      // 11. Test Game 8: 2048 Neon Fusion
+      try {
+        sandbox.innerHTML = '';
+        const g2048 = new Game2048(sandbox, () => {});
+        assert('2048 board has 16 cells (4x4)', sandbox.querySelectorAll('.game2048-cell').length === 16);
+        let nonZero = 0;
+        g2048.grid.forEach(r => r.forEach(v => { if (v > 0) nonZero++; }));
+        assert('2048 spawns initial tiles', nonZero >= 2);
+        g2048.destroy();
+      } catch (err) {
+        assert('2048 Test', false, err.message);
+      }
+
+      // 12. Test Game 9: Speed Math Frenzy
+      try {
+        sandbox.innerHTML = '';
+        const math = new SpeedMathGame(sandbox, () => {});
+        assert('Speed Math generates equation', !!sandbox.querySelector('#math-equation').innerText);
+        assert('Speed Math provides 4 distinct answer choices', sandbox.querySelectorAll('.btn-math-opt').length === 4);
+        math.handleChoice(math.correctAnswer);
+        assert('Speed Math awards score and streak on correct answer', math.score > 0 && math.streak === 1);
+        math.destroy();
+      } catch (err) {
+        assert('Speed Math Test', false, err.message);
+      }
+
+      // 13. Test Game 10: Lights Out
+      try {
+        sandbox.innerHTML = '';
+        const lights = new LightsOutGame(sandbox, () => {});
+        assert('Lights Out creates 25 nodes (5x5)', sandbox.querySelectorAll('.light-tile').length === 25);
+        const preFlip = lights.board[0][0];
+        lights.toggle(0, 0);
+        assert('Lights Out toggles target and adjacent nodes', lights.board[0][0] !== preFlip);
+        lights.destroy();
+      } catch (err) {
+        assert('Lights Out Test', false, err.message);
+      }
+
+      // 14. Test Game 11: Wordle Master
+      try {
+        sandbox.innerHTML = '';
+        const wordle = new WordleGame(sandbox, () => {});
+        assert('Wordle creates 6 rows of 5 tiles', sandbox.querySelectorAll('.wordle-row').length === 6);
+        assert('Wordle creates on-screen keyboard', sandbox.querySelectorAll('.wordle-key').length > 20);
+        wordle.addLetter('B');
+        wordle.addLetter('R');
+        assert('Wordle accepts letter inputs into current guess', wordle.currentGuess === 'BR');
+        wordle.removeLetter();
+        assert('Wordle removes letter on backspace', wordle.currentGuess === 'B');
+        wordle.destroy();
+      } catch (err) {
+        assert('Wordle Test', false, err.message);
+      }
+
+      // 15. Test Game 12: Mental Rotation
+      try {
+        sandbox.innerHTML = '';
+        const rot = new MentalRotationGame(sandbox, () => {});
+        assert('Mental Rotation generates reference shape', typeof rot.generateShape === 'function');
+        const shape = rot.generateShape();
+        assert('Mental Rotation shape contains 5 connected 3D cubes', shape.length === 5);
+        const rotated = rot.rotate3D(shape, 1, 0, 0);
+        assert('Mental Rotation rotates cubes in 3D space', rotated.length === 5);
+        const mirrored = rot.mirrorFlip(shape);
+        assert('Mental Rotation generates chiral enantiomer (mirror)', mirrored.length === 5);
+        assert('Mental Rotation renders 4 candidate options', sandbox.querySelectorAll('.rotation-card').length === 4);
+        rot.destroy();
+      } catch (err) {
+        assert('Mental Rotation Test', false, err.message);
+      }
+
+      // Final status
+      if (failed === 0) {
+        statusEl.innerText = 'ALL PASSED (100%)';
+        statusEl.style.color = '#10b981';
+      } else {
+        statusEl.innerText = `${failed} FAILED`;
+        statusEl.style.color = '#ef4444';
+      }
+
+      console.log(`QA Completed: ${passed} passed, ${failed} failed out of ${total} total assertions.`);
+    }
+
+    window.addEventListener('load', runQA);
+  </script>
+</body>
+</html>

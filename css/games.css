@@ -1,0 +1,1019 @@
+/* ==========================================================================
+   NEUROLAB - Game Specific Visuals & Interactive Stages
+   High-Fidelity Cyber-Bioluminescent Aesthetics
+   ========================================================================== */
+
+/* Universal Game Wrapper */
+.game-stage-wrapper {
+  width: 100%;
+  max-width: 820px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   1. DUAL N-BACK
+   ========================================================================== */
+.nback-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.25rem;
+  width: 100%;
+}
+
+.nback-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.85rem;
+  background: rgba(19, 28, 48, 0.75);
+  border: 1px solid var(--border-glass-bright);
+  border-radius: var(--radius-full);
+  font-size: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(157, 101, 255, 0.15);
+}
+
+.nback-audio-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--violet-primary);
+  font-weight: 800;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 12px var(--violet-glow);
+}
+
+.nback-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 110px);
+  grid-template-rows: repeat(3, 110px);
+  gap: 14px;
+  padding: 20px;
+  background: rgba(8, 12, 20, 0.88);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+.nback-cell {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.nback-cell.active {
+  background: radial-gradient(circle, #ffffff 10%, #00f5ff 40%, #0077cc 100%) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 40px var(--cyan-primary), 0 0 80px rgba(0, 245, 255, 0.6), inset 0 0 20px #ffffff;
+  transform: scale(0.96);
+  z-index: 5;
+}
+
+.nback-controls {
+  display: flex;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+.btn-nback-match {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(19, 28, 48, 0.7);
+  border: 2px solid var(--border-glass-bright);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.btn-nback-match.active-press {
+  transform: scale(0.95);
+  border-color: var(--cyan-primary);
+  background: rgba(0, 245, 255, 0.25);
+  box-shadow: 0 0 25px var(--cyan-glow);
+}
+
+.btn-nback-match.visual:hover {
+  border-color: var(--cyan-primary);
+  box-shadow: 0 0 25px var(--cyan-glow);
+  transform: translateY(-2px);
+}
+
+.btn-nback-match.audio:hover {
+  border-color: var(--violet-primary);
+  box-shadow: 0 0 25px var(--violet-glow);
+  transform: translateY(-2px);
+}
+
+.nback-key-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-top: 0.35rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   2. CHIMP MEMORY TEST (AYUMU)
+   ========================================================================== */
+.chimp-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+}
+
+.chimp-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 620px;
+  padding: 0.85rem 1.75rem;
+  background: rgba(19, 28, 48, 0.75);
+  border: 1px solid var(--border-glass-bright);
+  border-radius: var(--radius-full);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.chimp-strikes {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.strike-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-glass);
+  transition: all var(--transition-fast);
+}
+
+.strike-dot.filled {
+  background: var(--crimson-alert);
+  box-shadow: 0 0 15px var(--crimson-alert), 0 0 30px rgba(239, 68, 68, 0.6);
+}
+
+.chimp-board {
+  display: grid;
+  grid-template-columns: repeat(8, 58px);
+  grid-template-rows: repeat(5, 58px);
+  gap: 12px;
+  padding: 22px;
+  background: rgba(8, 12, 20, 0.92);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 0 40px rgba(0, 0, 0, 0.8);
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .chimp-board {
+    grid-template-columns: repeat(8, 40px);
+    grid-template-rows: repeat(5, 40px);
+    gap: 7px;
+    padding: 12px;
+  }
+}
+
+.chimp-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+.chimp-tile {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(30, 45, 75, 0.95), rgba(15, 24, 44, 0.95));
+  border: 1.5px solid rgba(0, 245, 255, 0.45);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.chimp-tile:hover {
+  transform: scale(1.08);
+  border-color: var(--cyan-primary);
+  box-shadow: 0 0 25px var(--cyan-glow);
+}
+
+.chimp-tile.masked {
+  color: transparent !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(200, 220, 245, 0.75) 100%) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.35), inset 0 0 10px rgba(0, 245, 255, 0.4);
+}
+
+.chimp-tile.correct {
+  background: rgba(16, 185, 129, 0.25) !important;
+  border-color: var(--emerald-primary) !important;
+  color: var(--emerald-primary) !important;
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.chimp-tile.wrong {
+  background: rgba(239, 68, 68, 0.45) !important;
+  border-color: var(--crimson-alert) !important;
+  color: #ffffff !important;
+  animation: shakeError 0.4s ease;
+  box-shadow: 0 0 25px var(--crimson-alert);
+}
+
+/* ==========================================================================
+   3. STROOP COLOR CLASH
+   ========================================================================== */
+.stroop-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.75rem;
+  width: 100%;
+}
+
+.stroop-card {
+  width: 100%;
+  max-width: 520px;
+  height: 230px;
+  background: linear-gradient(145deg, rgba(19, 28, 48, 0.9) 0%, rgba(10, 15, 26, 0.85) 100%);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.stroop-word {
+  font-family: var(--font-display);
+  font-size: 4rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 0.15s ease;
+  user-select: none;
+  filter: drop-shadow(0 0 30px currentColor);
+}
+
+.stroop-instruction {
+  position: absolute;
+  top: 1.25rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.stroop-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.35rem;
+  width: 100%;
+  max-width: 520px;
+}
+
+.btn-stroop-color {
+  padding: 1.35rem;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-glass-bright);
+  background: rgba(19, 28, 48, 0.7);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.btn-stroop-color:hover {
+  transform: translateY(-4px);
+  filter: brightness(1.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px currentColor;
+}
+
+/* ==========================================================================
+   4. SCHULTE GRID (5x5)
+   ========================================================================== */
+.schulte-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+}
+
+.schulte-target-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.85rem 2.25rem;
+  background: rgba(19, 28, 48, 0.75);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-glass-bright);
+  font-size: 1.15rem;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.schulte-target-num {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  color: var(--cyan-primary);
+  text-shadow: 0 0 20px var(--cyan-glow);
+}
+
+.schulte-board {
+  display: grid;
+  grid-template-columns: repeat(5, 72px);
+  grid-template-rows: repeat(5, 72px);
+  gap: 12px;
+  padding: 18px;
+  background: rgba(8, 12, 20, 0.92);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  position: relative;
+}
+
+.schulte-center-cross {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.schulte-center-cross::before,
+.schulte-center-cross::after {
+  content: '';
+  position: absolute;
+  background: rgba(239, 68, 68, 0.65);
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.8);
+}
+
+.schulte-center-cross::before { width: 100%; height: 2px; }
+.schulte-center-cross::after { height: 100%; width: 2px; }
+
+.schulte-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: rgba(19, 28, 48, 0.6);
+  border: 1px solid var(--border-glass-bright);
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.schulte-tile:hover {
+  background: rgba(26, 38, 66, 0.95);
+  border-color: var(--cyan-primary);
+  transform: scale(1.06);
+  box-shadow: 0 0 16px var(--cyan-glow);
+}
+
+.schulte-tile.found {
+  opacity: 0.2;
+  pointer-events: none;
+  border-color: var(--emerald-primary);
+  color: var(--emerald-primary);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+/* ==========================================================================
+   5. MEMORY MATRIX
+   ========================================================================== */
+.matrix-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+}
+
+.matrix-grid {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  background: rgba(8, 12, 20, 0.92);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+}
+
+.matrix-cell {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass-bright);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.matrix-cell.flash {
+  background: linear-gradient(135deg, #ffffff 0%, var(--cyan-primary) 50%, #0099ff 100%) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 35px var(--cyan-primary), inset 0 0 15px #ffffff;
+  transform: scale(0.95);
+}
+
+.matrix-cell.selected-correct {
+  background: linear-gradient(135deg, var(--emerald-primary), #059669) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 25px var(--emerald-glow);
+  transform: scale(0.96);
+}
+
+.matrix-cell.selected-wrong {
+  background: linear-gradient(135deg, var(--crimson-alert), #dc2626) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
+  animation: shakeError 0.4s ease;
+}
+
+/* ==========================================================================
+   6. SIMON SEQUENCE
+   ========================================================================== */
+.simon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+}
+
+.simon-circle-wrap {
+  width: 360px;
+  height: 360px;
+  position: relative;
+  border-radius: 50%;
+  padding: 16px;
+  background: #080c14;
+  border: 3px solid var(--border-glass-bright);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 16px;
+}
+
+.simon-pad {
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  filter: brightness(0.65);
+  position: relative;
+  overflow: hidden;
+}
+
+.simon-pad:active, .simon-pad.active {
+  filter: brightness(1.75);
+  transform: scale(0.96);
+}
+
+.simon-pad.tl {
+  border-radius: 100% 0 0 0;
+  background: var(--cyan-primary);
+  box-shadow: inset -4px -4px 20px rgba(0,0,0,0.6);
+}
+.simon-pad.tl.active {
+  box-shadow: 0 0 45px var(--cyan-primary);
+}
+
+.simon-pad.tr {
+  border-radius: 0 100% 0 0;
+  background: var(--violet-primary);
+  box-shadow: inset 4px -4px 20px rgba(0,0,0,0.6);
+}
+.simon-pad.tr.active {
+  box-shadow: 0 0 45px var(--violet-primary);
+}
+
+.simon-pad.bl {
+  border-radius: 0 0 0 100%;
+  background: var(--emerald-primary);
+  box-shadow: inset -4px 4px 20px rgba(0,0,0,0.6);
+}
+.simon-pad.bl.active {
+  box-shadow: 0 0 45px var(--emerald-primary);
+}
+
+.simon-pad.br {
+  border-radius: 0 0 100% 0;
+  background: var(--amber-primary);
+  box-shadow: inset 4px 4px 20px rgba(0,0,0,0.6);
+}
+.simon-pad.br.active {
+  box-shadow: 0 0 45px var(--amber-primary);
+}
+
+.simon-center-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 115px;
+  height: 115px;
+  border-radius: 50%;
+  background: #0d121f;
+  border: 5px solid #080c14;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.simon-hub-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.simon-hub-count {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   7. TOWER OF HANOI
+   ========================================================================== */
+.hanoi-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.25rem;
+  width: 100%;
+}
+
+.hanoi-board {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 660px;
+  height: 290px;
+  background: rgba(10, 15, 26, 0.85);
+  border: 1px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  padding: 0 25px 25px 25px;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+}
+
+.hanoi-board-base {
+  position: absolute;
+  bottom: 15px;
+  left: 20px;
+  right: 20px;
+  height: 16px;
+  background: linear-gradient(180deg, #334155, #0f172a);
+  border-radius: 8px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hanoi-rod-wrap {
+  width: 170px;
+  height: 250px;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  z-index: 2;
+  padding-bottom: 8px;
+}
+
+.hanoi-rod-wrap:hover .hanoi-peg {
+  background: var(--cyan-primary);
+  box-shadow: 0 0 20px var(--cyan-glow);
+}
+
+.hanoi-peg {
+  position: absolute;
+  bottom: 0;
+  width: 12px;
+  height: 210px;
+  background: #475569;
+  border-radius: 6px 6px 0 0;
+  transition: all var(--transition-fast);
+  z-index: 1;
+}
+
+.hanoi-disk {
+  height: 26px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+  position: relative;
+  z-index: 3;
+  user-select: none;
+}
+
+.hanoi-disk.selected {
+  transform: translateY(-28px);
+  filter: brightness(1.3);
+  box-shadow: 0 12px 30px rgba(0, 245, 255, 0.6);
+}
+
+/* ==========================================================================
+   8. 2048 NEON FUSION
+   ========================================================================== */
+.game2048-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+}
+
+.game2048-board {
+  width: 380px;
+  height: 380px;
+  background: #080c14;
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  position: relative;
+  touch-action: none;
+}
+
+.game2048-cell {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #ffffff;
+  user-select: none;
+  transition: all 0.12s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.game2048-cell.tile-2 { background: rgba(0, 245, 255, 0.15); color: #00f5ff; border: 1px solid rgba(0, 245, 255, 0.4); }
+.game2048-cell.tile-4 { background: rgba(0, 245, 255, 0.28); color: #ffffff; border: 1px solid #00f5ff; box-shadow: 0 0 15px rgba(0, 245, 255, 0.3); }
+.game2048-cell.tile-8 { background: rgba(157, 101, 255, 0.4); color: #ffffff; border: 1px solid #9d65ff; box-shadow: 0 0 18px rgba(157, 101, 255, 0.4); }
+.game2048-cell.tile-16 { background: rgba(157, 101, 255, 0.65); color: #ffffff; border: 1px solid #c084fc; box-shadow: 0 0 22px rgba(157, 101, 255, 0.6); }
+.game2048-cell.tile-32 { background: rgba(255, 51, 102, 0.6); color: #ffffff; border: 1px solid #ff3366; box-shadow: 0 0 22px rgba(255, 51, 102, 0.5); }
+.game2048-cell.tile-64 { background: rgba(255, 51, 102, 0.85); color: #ffffff; border: 1px solid #fb7185; box-shadow: 0 0 26px rgba(255, 51, 102, 0.7); }
+.game2048-cell.tile-128 { background: rgba(255, 170, 0, 0.75); color: #ffffff; border: 1px solid #ffaa00; box-shadow: 0 0 28px rgba(255, 170, 0, 0.7); font-size: 1.5rem; }
+.game2048-cell.tile-256 { background: rgba(255, 170, 0, 0.95); color: #ffffff; border: 1px solid #fde047; box-shadow: 0 0 32px rgba(255, 170, 0, 0.85); font-size: 1.5rem; }
+.game2048-cell.tile-512 { background: rgba(16, 185, 129, 0.9); color: #ffffff; border: 1px solid #10b981; box-shadow: 0 0 35px rgba(16, 185, 129, 0.8); font-size: 1.5rem; }
+.game2048-cell.tile-1024 { background: linear-gradient(135deg, #00f5ff, #9d65ff); color: #ffffff; box-shadow: 0 0 40px rgba(0, 245, 255, 0.9); font-size: 1.3rem; }
+.game2048-cell.tile-2048 { background: linear-gradient(135deg, #ffaa00, #ff3366, #00f5ff); color: #ffffff; box-shadow: 0 0 45px rgba(255, 170, 0, 1); font-size: 1.3rem; animation: pulseGlow 1.5s infinite; }
+
+/* ==========================================================================
+   9. SPEED MATH FRENZY
+   ========================================================================== */
+.math-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.25rem;
+  width: 100%;
+}
+
+.math-equation-card {
+  width: 100%;
+  max-width: 540px;
+  height: 190px;
+  background: linear-gradient(145deg, rgba(19, 28, 48, 0.9) 0%, rgba(10, 15, 26, 0.85) 100%);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+
+.math-equation-text {
+  font-family: var(--font-display);
+  font-size: 3.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
+}
+
+.math-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.35rem;
+  width: 100%;
+  max-width: 540px;
+}
+
+.btn-math-opt {
+  padding: 1.35rem;
+  border-radius: var(--radius-lg);
+  background: rgba(19, 28, 48, 0.7);
+  border: 1px solid var(--border-glass-bright);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-math-opt:hover {
+  background: rgba(26, 38, 66, 0.95);
+  border-color: var(--cyan-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 245, 255, 0.35);
+}
+
+/* ==========================================================================
+   10. LIGHTS OUT
+   ========================================================================== */
+.lights-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+}
+
+.lights-board {
+  display: grid;
+  grid-template-columns: repeat(5, 68px);
+  grid-template-rows: repeat(5, 68px);
+  gap: 12px;
+  padding: 20px;
+  background: rgba(8, 12, 20, 0.92);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+}
+
+.light-tile {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass-bright);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.light-tile.lit {
+  background: radial-gradient(circle, #ffffff 10%, #00f5ff 40%, #0077aa 100%) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 35px var(--cyan-primary), 0 0 70px rgba(0, 245, 255, 0.5), inset 0 0 15px #ffffff;
+}
+
+.light-tile.hint {
+  border: 2px dashed var(--amber-primary) !important;
+  box-shadow: 0 0 25px var(--amber-glow);
+}
+
+/* ==========================================================================
+   11. WORDLE MASTER
+   ========================================================================== */
+.wordle-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+}
+
+.wordle-grid {
+  display: grid;
+  grid-template-rows: repeat(6, 60px);
+  gap: 10px;
+  user-select: none;
+}
+
+.wordle-row {
+  display: grid;
+  grid-template-columns: repeat(5, 60px);
+  gap: 10px;
+}
+
+.wordle-tile {
+  width: 60px;
+  height: 60px;
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+  transition: all 0.25s ease;
+}
+
+.wordle-tile.filled {
+  border-color: rgba(255, 255, 255, 0.45);
+  animation: scaleSuccess 0.15s ease;
+}
+
+.wordle-tile.correct {
+  background: var(--emerald-primary) !important;
+  border-color: var(--emerald-primary) !important;
+  box-shadow: 0 0 20px var(--emerald-glow);
+}
+
+.wordle-tile.present {
+  background: var(--amber-primary) !important;
+  border-color: var(--amber-primary) !important;
+  box-shadow: 0 0 20px var(--amber-glow);
+}
+
+.wordle-tile.absent {
+  background: #172033 !important;
+  border-color: #27354f !important;
+  color: var(--text-muted) !important;
+}
+
+.wordle-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.wordle-kb-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.wordle-key {
+  min-width: 40px;
+  height: 50px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(19, 28, 48, 0.85);
+  border: 1px solid var(--border-glass-bright);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.wordle-key.wide {
+  min-width: 65px;
+  font-size: 0.82rem;
+}
+
+.wordle-key:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.wordle-key.correct { background: var(--emerald-primary); }
+.wordle-key.present { background: var(--amber-primary); }
+.wordle-key.absent { background: #172033; color: var(--text-muted); }
+
+/* ==========================================================================
+   12. MENTAL ROTATION (3D SPATIAL IQ)
+   ========================================================================== */
+.rotation-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.25rem;
+  width: 100%;
+}
+
+.rotation-reference-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 1.75rem;
+  background: rgba(19, 28, 48, 0.85);
+  border: 2px solid var(--border-glow);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(0, 245, 255, 0.25);
+}
+
+.rotation-reference-label {
+  font-size: 0.82rem;
+  color: var(--cyan-primary);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.75rem;
+}
+
+.rotation-candidates-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .rotation-candidates-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.rotation-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(19, 28, 48, 0.7);
+  border: 2px solid var(--border-glass-bright);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rotation-card:hover {
+  border-color: var(--cyan-primary);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 245, 255, 0.4);
+  background: rgba(26, 38, 66, 0.95);
+}
+
+.rotation-canvas {
+  width: 140px;
+  height: 140px;
+}
