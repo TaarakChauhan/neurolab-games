@@ -1,6 +1,6 @@
 # 🧠 NEUROLAB - Elite Brain Games & Cognitive Training Suite
 
-A laboratory-grade suite of **12 scientifically grounded brain training games** built with HTML5, Vanilla CSS, and modern JavaScript. Designed with stunning cyber-neuromorphic aesthetics, real-time Canvas visualizations, Web Audio API synthesizers, and zero external build dependencies.
+A laboratory-grade suite of **13 scientifically grounded brain training games** built with HTML5, Vanilla CSS, and modern JavaScript. Designed with stunning cyber-neuromorphic aesthetics, real-time Canvas visualizations, Web Audio API synthesizers, and zero external build dependencies.
 
 ---
 
@@ -32,6 +32,7 @@ Then visit: [http://localhost:8765](http://localhost:8765)
 | **Schulte Grid 5x5** | Processing Speed | Visual Search & Peripheral Field | Locate numbers 1 through 25 sequentially while maintaining central fixation. |
 | **Speed Math Frenzy** | Processing Speed | Intraparietal Sulcus Arithmetic | 60-second rapid-fire mental arithmetic calculations with streak combo multipliers. |
 | **Stroop Color Clash** | Focus & Inhibition | Anterior Cingulate Cortex (ACC) | Identify ink colors while overriding the automatic impulse to read the written word. |
+| **Interference Protocol** | Focus & Inhibition | Task-switch cost | Obey a banner that flips between finding a number and naming ink color. The switch cost is the score. |
 | **Tower of Hanoi** | Logic & Planning | Prefrontal Executive Decomposition | Recursive disk transfer puzzle with moves counter vs optimal $2^n - 1$ formula and AI auto-solver. |
 | **2048 Neon Fusion** | Logic & Planning | Spatial Forward Planning & Strategy | Slide and merge tiles with swipe and arrow keys, featuring undo and merge animations. |
 | **Lights Out** | Logic & Planning | Boolean Matrix Parity Logic | Invert all illuminated nodes where clicking toggles the cell and its 4 orthogonal neighbors. Includes hints. |
@@ -47,20 +48,29 @@ Then visit: [http://localhost:8765](http://localhost:8765)
    - Interactive synaptic particle network on HTML5 Canvas that responds to cursor proximity.
    - Glassmorphic panels with backdrop blurs and subtle edge glows.
 
-2. **Real-Time Cognitive Radar Chart**:
+2. **Trial Ledger & Live Protocol**:
+   - Every tap stores whether it was right and how many milliseconds it took.
+   - The daily three drills are chosen from the thinnest domains and stay fixed for the day.
+   - A streak counts only after a finished drill.
+
+3. **Real-Time Cognitive Radar Chart**:
    - High-DPI canvas radar chart tracking performance across **5 cognitive domains**: Memory, Speed, Focus, Logic, and Spatial.
    - Dynamic **Neuro Quotient (NQ)** algorithm scaling from 800 to 1600 based on session performance.
+   - The background network is the same five domains: edges thicken where a score is higher, and each tap pulses that lobe.
 
-3. **Daily 3-Game Workout Mode**:
-   - Chains three varied cognitive drills each day and tracks daily training streaks.
+4. **Ayumu, a solid you can turn, and a session you can hear**:
+   - The chimp plays the same board beside you, and a sealed daily code makes that board identical for everyone.
+   - Mental rotation is a polycube you drag.
+   - Replay the session turns the trial ledger into a short piece of music.
+   - Memory Matrix leaves its last pattern in a palace you can come back to.
 
-4. **Pure Web Audio API Synthesizer**:
+5. **Pure Web Audio API Synthesizer**:
    - Zero audio assets or external sound files needed.
    - Synthesizes marimba taps, crystal-clear success chords, error buzzers, and musical tones in real time.
    - Master mute toggle in the header.
 
-5. **60fps Canvas Confetti Engine**:
+6. **60fps Canvas Confetti Engine**:
    - Smooth celebratory particle bursts upon high scores and victories.
 
-6. **Local Persistence**:
+7. **Local Persistence**:
    - All high scores, personal bests, NQ history, and streaks persist in `localStorage`.

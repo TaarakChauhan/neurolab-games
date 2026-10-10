@@ -188,6 +188,45 @@ class SoundEngine {
       osc.stop(startTime + 0.6);
     });
   }
+
+  /* A finished drill becomes a short piece. Correct notes sit on a
+     pentatonic. A miss detunes. Faster taps are shorter. */
+  rememberTrial(trial) {
+    if (!this.phrase) this.phrase = [];
+    this.phrase.push({
+      correct: !!trial.correct,
+      rt: trial.rt || 600,
+      domain: trial.domain || 'memory'
+    });
+    if (this.phrase.length > 48) this.phrase.shift();
+  }
+
+  playMind(trials) {
+    const notes = (trials && trials.length ? trials : this.phrase || []).slice(-32);
+    if (!notes.length || this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const scale = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+    let t = this.ctx.currentTime + 0.06;
+    notes.forEach((note, i) => {
+      const base = scale[i % scale.length];
+      const freq = note.correct ? base : base * 0.943;
+      const dur = Math.max(0.09, Math.min(0.32, (note.rt || 560) / 2200));
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = note.correct ? 'triangle' : 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(note.correct ? 0.09 : 0.05, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+      t += dur * 0.82;
+    });
+  }
 }
 
 window.soundEngine = new SoundEngine();

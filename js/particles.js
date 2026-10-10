@@ -12,7 +12,17 @@ class NeuralParticles {
     this.pulses = [];
     this.mouse = { x: null, y: null, radius: 175 };
 
-    this.palette = ['#00f5ff', '#9d65ff', '#10b981', '#ffaa00', '#ff3366'];
+    this.domains = [
+      { key: 'memory', color: '#9d65ff' },
+      { key: 'speed', color: '#00f5ff' },
+      { key: 'focus', color: '#ff3366' },
+      { key: 'logic', color: '#10b981' },
+      { key: 'spatial', color: '#ffaa00' }
+    ];
+    this.domainScores = { memory: 68, speed: 62, focus: 74, logic: 65, spatial: 60 };
+    if (window.brainState && window.brainState.data) {
+      this.domainScores = { ...this.domainScores, ...window.brainState.data.domains };
+    }
 
     this.resize();
     this.initNodes();
@@ -50,18 +60,48 @@ class NeuralParticles {
     const nodeCount = Math.max(40, Math.min(90, count));
 
     for (let i = 0; i < nodeCount; i++) {
-      const color = this.palette[Math.floor(Math.random() * this.palette.length)];
+      const lobe = this.domains[i % this.domains.length];
+      const band = i % this.domains.length;
       this.nodes.push({
-        x: Math.random() * this.width,
+        x: ((band + Math.random()) / this.domains.length) * this.width,
         y: Math.random() * this.height,
-        vx: (Math.random() - 0.5) * 0.55,
-        vy: (Math.random() - 0.5) * 0.55,
+        vx: (Math.random() - 0.5) * 0.45,
+        vy: (Math.random() - 0.5) * 0.45,
         radius: 1.5 + Math.random() * 2.2,
-        color: color,
-        alpha: 0.3 + Math.random() * 0.5,
+        color: lobe.color,
+        domain: lobe.key,
+        alpha: 0.35 + Math.random() * 0.5,
         pulseOffset: Math.random() * Math.PI * 2
       });
     }
+  }
+
+  sync(domains) {
+    if (domains) this.domainScores = { ...this.domainScores, ...domains };
+  }
+
+  pulse(domain, correct = true) {
+    if (!this.nodes || !this.nodes.length) return;
+    const pool = this.nodes.filter(n => n.domain === domain);
+    const src = pool.length ? pool : this.nodes;
+    const a = src[Math.floor(Math.random() * src.length)];
+    const b = src[Math.floor(Math.random() * src.length)];
+    this.pulses.push({
+      x: a.x,
+      y: a.y,
+      tx: b.x,
+      ty: b.y,
+      t: 0,
+      color: correct ? a.color : '#ff3366'
+    });
+    if (this.pulses.length > 28) this.pulses.shift();
+  }
+
+  replay(trials) {
+    if (typeof setTimeout !== 'function') return;
+    (trials || []).slice(-18).forEach((trial, i) => {
+      setTimeout(() => this.pulse(trial.domain, trial.correct !== false), i * 130);
+    });
   }
 
   animate() {
@@ -103,14 +143,18 @@ class NeuralParticles {
         const dy = n.y - n2.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < 140) {
-          const lineAlpha = (1 - dist / 140) * 0.26;
+        const same = n.domain && n.domain === n2.domain;
+        const score = (this.domainScores && this.domainScores[n.domain]) || 60;
+        const reach = same ? 128 + (score - 50) * 0.55 : 96;
+        if (dist < reach) {
+          const weight = same ? 0.55 + (score / 100) * 1.7 : 0.55;
+          const lineAlpha = (1 - dist / reach) * (same ? 0.34 : 0.14);
           this.ctx.beginPath();
           this.ctx.moveTo(n.x, n.y);
           this.ctx.lineTo(n2.x, n2.y);
-          this.ctx.strokeStyle = n.color;
+          this.ctx.strokeStyle = same ? n.color : '#94a3b8';
           this.ctx.globalAlpha = lineAlpha;
-          this.ctx.lineWidth = 0.9;
+          this.ctx.lineWidth = weight;
           this.ctx.stroke();
 
           // Occasional synaptic electric pulse spark
@@ -147,11 +191,27 @@ class NeuralParticles {
       }
     }
 
+    for (let p = this.pulses.length - 1; p >= 0; p--) {
+      const pulse = this.pulses[p];
+      pulse.t += 0.035;
+      if (pulse.t >= 1) {
+        this.pulses.splice(p, 1);
+        continue;
+      }
+      const px = pulse.x + (pulse.tx - pulse.x) * pulse.t;
+      const py = pulse.y + (pulse.ty - pulse.y) * pulse.t;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+      this.ctx.fillStyle = pulse.color;
+      this.ctx.globalAlpha = (1 - pulse.t) * 0.9;
+      this.ctx.fill();
+    }
+
     this.ctx.globalAlpha = 1;
     requestAnimationFrame(() => this.animate());
   }
 }
 
 window.initNeuralParticles = () => {
-  new NeuralParticles();
+  window.neuralField = new NeuralParticles();
 };

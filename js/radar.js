@@ -49,6 +49,7 @@ class BrainRadarChart {
   }
 
   update(domainObj, instant = false) {
+    if (!this.axes || !domainObj) return;
     this.targetValues = this.axes.map(axis => domainObj[axis.key] || 50);
     if (instant) {
       this.currentValues = [...this.targetValues];

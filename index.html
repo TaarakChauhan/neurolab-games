@@ -78,13 +78,13 @@
         <div>
           <div class="hero-kicker">
             <span class="hero-kicker-dot"></span>
-            <span>CLINICAL COGNITIVE TELEMETRY • 12 LAB-GRADE DRILLS</span>
+            <span>TRIAL LEDGER • LIVE PROTOCOL • 13 LAB DRILLS</span>
           </div>
           <h1 class="hero-title">
             Unlock Peak <span>Neuroplasticity</span> & Working Memory
           </h1>
           <p class="hero-desc">
-            Challenge your working memory, reaction latency, selective attention, and spatial fluid IQ with 12 lab-grade cognitive games inspired by modern neurobiology.
+            Thirteen drills, one ledger. Every tap is timed. The daily protocol aims at the domain that is thinnest, and the session can be replayed as light and sound.
           </p>
 
           <!-- Daily Goal Progress Gauge -->
@@ -97,6 +97,18 @@
             </div>
             <div class="hero-goal-bar-track">
               <div class="hero-goal-bar-fill" id="hero-goal-bar-fill"></div>
+            </div>
+            <div class="workout-rx" id="workout-rx">Protocol</div>
+          </div>
+
+          <div class="lab-strip" id="lab-strip">
+            <p class="lab-note" id="lab-note">The ledger is listening.</p>
+            <canvas class="nq-spark" id="nq-spark"></canvas>
+            <div class="lab-actions">
+              <button class="btn-secondary btn-lab" id="btn-hear-mind" type="button">Replay the session</button>
+              <button class="btn-secondary btn-lab" id="btn-sealed-duel" type="button">Sealed duel</button>
+              <button class="btn-secondary btn-lab" id="btn-palace" type="button">Memory palace</button>
+              <span class="duel-code" id="duel-code">AYU</span>
             </div>
           </div>
         </div>
@@ -152,7 +164,7 @@
         </button>
         <button class="tab-btn" data-category="focus">
           <span class="tab-dot focus"></span>
-          <span>Focus (1)</span>
+          <span>Focus (2)</span>
         </button>
         <button class="tab-btn" data-category="speed">
           <span class="tab-dot speed"></span>
@@ -259,12 +271,24 @@
         <div id="summary-nq-change" style="font-size:0.92rem; color:var(--emerald-primary); font-weight:700;">
           Current NQ: 1040
         </div>
+        <p id="summary-lab" class="summary-lab"></p>
       </div>
 
-      <div class="modal-footer" style="justify-content:center; gap:1.25rem;">
+      <div class="modal-footer" style="justify-content:center; gap:1.25rem; flex-wrap:wrap;">
+        <button class="btn-secondary" id="btn-summary-hear" type="button">Hear this session</button>
         <button class="btn-secondary" id="btn-summary-replay">Play Again</button>
         <button class="btn-primary" id="btn-summary-next">Back to Hub ➔</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="palace-modal">
+    <div class="modal-card">
+      <button class="modal-close-btn" type="button">✕</button>
+      <div class="modal-header">
+        <h3 class="modal-title">Memory Palace</h3>
+      </div>
+      <div class="modal-body" id="palace-body"></div>
     </div>
   </div>
 
