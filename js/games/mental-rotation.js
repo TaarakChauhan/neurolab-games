@@ -12,9 +12,16 @@ class MentalRotationGame {
     this.score = 0;
     this.correctCount = 0;
     this.startTime = null;
+    this.yaw = 0.5;
+    this.pitch = 0.4;
+    this._dragging = false;
+    this._alive = true;
+    this.trials = [];
 
     this.render();
+    this.bindSpin();
     this.startRound();
+    this.spinLoop();
   }
 
   render() {
@@ -29,11 +36,11 @@ class MentalRotationGame {
 
           <div class="rotation-reference-card">
             <span class="rotation-reference-label">Reference 3D Object</span>
-            <canvas class="rotation-canvas" id="rot-ref-canvas" width="160" height="160"></canvas>
+            <canvas class="rotation-canvas" id="rot-ref-canvas" width="220" height="220"></canvas>
           </div>
 
           <div style="font-size:0.85rem; color:var(--text-secondary); text-align:center;">
-            Which of the 4 objects below is an <strong>exact 3D rotation</strong> of the reference object?
+            Drag the reference solid and turn it in your hand. Then pick the <strong>exact rotation</strong>. Mirrors do not count.
           </div>
 
           <div class="rotation-candidates-grid" id="rot-candidates">
@@ -48,6 +55,107 @@ class MentalRotationGame {
     this.accEl = this.container.querySelector('#rot-acc');
     this.refCanvas = this.container.querySelector('#rot-ref-canvas');
     this.candidatesEl = this.container.querySelector('#rot-candidates');
+    if (this.refCanvas) {
+      this.refCanvas.style.touchAction = 'none';
+      this.refCanvas.style.cursor = 'grab';
+    }
+  }
+
+  bindSpin() {
+    const canvas = this.refCanvas;
+    if (!canvas || !canvas.addEventListener) return;
+    canvas.addEventListener('pointerdown', (e) => {
+      this._dragging = true;
+      this._lx = e.clientX;
+      this._ly = e.clientY;
+      if (canvas.setPointerCapture) {
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!this._dragging) return;
+      const dx = e.clientX - this._lx;
+      const dy = e.clientY - this._ly;
+      this._lx = e.clientX;
+      this._ly = e.clientY;
+      this.yaw += dx * 0.012;
+      this.pitch = Math.max(-1.15, Math.min(1.15, this.pitch + dy * 0.012));
+      if (this.referenceShape) this.drawSolid(canvas, this.referenceShape, '#00f0ff');
+    });
+    const release = () => { this._dragging = false; };
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', release);
+  }
+
+  spinLoop() {
+    if (!this._alive || typeof requestAnimationFrame !== 'function') return;
+    if (!this._dragging && this.refCanvas && this.referenceShape) {
+      this.yaw += 0.008;
+      this.drawSolid(this.refCanvas, this.referenceShape, '#00f0ff');
+    }
+    this._spin = requestAnimationFrame(() => this.spinLoop());
+  }
+
+  project(x, y, z, w, h) {
+    const cy = Math.cos(this.yaw);
+    const sy = Math.sin(this.yaw);
+    const x1 = x * cy + z * sy;
+    const z1 = -x * sy + z * cy;
+    const cx = Math.cos(this.pitch);
+    const sx = Math.sin(this.pitch);
+    const y1 = y * cx - z1 * sx;
+    const z2 = y * sx + z1 * cx;
+    const persp = 9 / (9 + z2);
+    const s = 36 * persp;
+    return { x: w / 2 + x1 * s, y: h / 2 - y1 * s + 6, z: z2 };
+  }
+
+  drawSolid(canvas, cubes, color) {
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const faces = [];
+    const offs = [-0.46, 0.46];
+    cubes.forEach(c => {
+      const corners = [];
+      offs.forEach(dx => {
+        offs.forEach(dy => {
+          offs.forEach(dz => {
+            corners.push(this.project(c.x + dx, c.y + dy, c.z + dz, w, h));
+          });
+        });
+      });
+      const quads = [
+        [0, 2, 6, 4],
+        [1, 5, 7, 3],
+        [0, 4, 5, 1],
+        [2, 3, 7, 6],
+        [0, 1, 3, 2],
+        [4, 6, 7, 5]
+      ];
+      const shades = [0.35, 0.55, 0.42, 0.95, 0.5, 0.72];
+      quads.forEach((quad, i) => {
+        const pts = quad.map(idx => corners[idx]);
+        const depth = pts.reduce((sum, p) => sum + p.z, 0) / 4;
+        faces.push({ pts, depth, shade: shades[i] });
+      });
+    });
+    faces.sort((a, b) => b.depth - a.depth);
+    faces.forEach(face => {
+      ctx.beginPath();
+      face.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.28 + face.shade * 0.62;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
   }
 
   /* Procedural 3D polycube generation */
@@ -102,7 +210,11 @@ class MentalRotationGame {
     this.roundEl.innerText = this.currentRound + 1;
 
     const baseShape = this.generateShape();
-    this.drawIsometric(this.refCanvas, baseShape, '#00f0ff');
+    this.referenceShape = baseShape;
+    this.yaw = 0.4 + Math.random() * 0.6;
+    this.pitch = 0.25;
+    if (this.refCanvas) this.drawSolid(this.refCanvas, baseShape, '#00f0ff');
+    if (!this.candidatesEl) return;
 
     // 1 Correct rotation, 3 False (mirrored or altered)
     const candidates = [];
@@ -229,6 +341,16 @@ class MentalRotationGame {
 
   handlePick(card, isMatch) {
     const elapsed = Date.now() - this.startTime;
+    this.trials.push({ correct: !!isMatch, rt: elapsed });
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'mental-rotation',
+        domain: 'spatial',
+        correct: !!isMatch,
+        rt: elapsed,
+        tag: 'rotation'
+      });
+    }
 
     if (isMatch) {
       this.correctCount++;
@@ -268,12 +390,22 @@ class MentalRotationGame {
       score: this.score,
       domain: 'spatial',
       accuracy: `${this.correctCount}/${this.totalRounds} Correct`,
-      details: 'Evaluated 3D parietal mental rotation vectors',
-      performanceRatio: this.correctCount / this.totalRounds
+      details: 'You turned the solid, then matched it against the mirrors.',
+      performanceRatio: this.correctCount / this.totalRounds,
+      signals: {
+        meanRt: this.trials.length
+          ? Math.round(this.trials.reduce((s, t) => s + t.rt, 0) / this.trials.length)
+          : 0
+      }
     });
   }
 
-  destroy() {}
+  destroy() {
+    this._alive = false;
+    if (this._spin && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this._spin);
+    }
+  }
 }
 
 window.MentalRotationGame = MentalRotationGame;

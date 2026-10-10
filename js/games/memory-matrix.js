@@ -77,10 +77,10 @@ class MemoryMatrixGame {
     this.gridEl.innerHTML = '';
     const total = this.gridSize * this.gridSize;
 
-    // Pick random target indices
     while (this.targetCells.size < this.activeCount) {
       this.targetCells.add(Math.floor(Math.random() * total));
     }
+    this.palace = { size: this.gridSize, cells: Array.from(this.targetCells) };
 
     const cells = [];
     for (let i = 0; i < total; i++) {
@@ -104,6 +104,7 @@ class MemoryMatrixGame {
       setTimeout(() => {
         cells.forEach(c => c.classList.remove('flash'));
         this.isInputAllowed = true;
+        this.recallStarted = Date.now();
       }, 1200);
     }, 400);
   }
@@ -111,6 +112,17 @@ class MemoryMatrixGame {
   handleCellClick(cell, idx) {
     if (!this.isInputAllowed || this.selectedCells.has(idx)) return;
     this.selectedCells.add(idx);
+
+    const rt = Date.now() - (this.recallStarted || Date.now());
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'memory-matrix',
+        domain: 'memory',
+        correct: this.targetCells.has(idx),
+        rt,
+        tag: 'cell'
+      });
+    }
 
     if (this.targetCells.has(idx)) {
       cell.classList.add('selected-correct');
@@ -162,7 +174,8 @@ class MemoryMatrixGame {
       domain: 'memory',
       accuracy: `Level ${this.level} (${this.gridSize}x${this.gridSize})`,
       details: `Recalled up to ${this.activeCount} simultaneous spatial coordinates`,
-      performanceRatio: Math.min(1, this.level / 10)
+      performanceRatio: Math.min(1, this.level / 10),
+      signals: { palace: this.palace || null }
     });
   }
 

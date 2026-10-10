@@ -77,6 +77,7 @@ class SpeedMathGame {
       answer = a * b;
     }
 
+    this.posedAt = Date.now();
     this.correctAnswer = answer;
     this.eqEl.innerText = `${a} ${op === '*' ? '×' : op} ${b} = ?`;
 
@@ -103,7 +104,17 @@ class SpeedMathGame {
 
   handleChoice(val) {
     this.totalSolved++;
-    if (val === this.correctAnswer) {
+    const correct = val === this.correctAnswer;
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'speed-math',
+        domain: 'speed',
+        correct,
+        rt: Date.now() - (this.posedAt || Date.now()),
+        tag: 'math'
+      });
+    }
+    if (correct) {
       this.correctCount++;
       this.streak++;
       const mult = Math.min(5, 1 + Math.floor(this.streak / 4));

@@ -22,9 +22,12 @@ class StroopGame {
     this.totalAttempts = 0;
     this.correctAttempts = 0;
     this.responseTimes = [];
+    this.trialLog = [];
     this.lastWordTime = Date.now();
 
     this.currentInkColor = null;
+    this.currentWord = null;
+    this.currentCongruent = false;
 
     this.render();
     this.startTimer();
@@ -94,6 +97,8 @@ class StroopGame {
     }
 
     this.currentInkColor = inkItem.name;
+    this.currentWord = wordItem.name;
+    this.currentCongruent = wordItem.name === inkItem.name;
     this.wordEl.innerText = wordItem.name;
     this.wordEl.style.color = inkItem.hex;
     this.wordEl.style.transform = 'scale(1.05)';
@@ -104,8 +109,19 @@ class StroopGame {
     const elapsed = Date.now() - this.lastWordTime;
     this.responseTimes.push(elapsed);
     this.totalAttempts++;
+    const correct = selectedColor === this.currentInkColor;
+    this.trialLog.push({ correct, rt: elapsed, congruent: this.currentCongruent });
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'stroop',
+        domain: 'focus',
+        correct,
+        rt: elapsed,
+        tag: this.currentCongruent ? 'congruent' : 'incongruent'
+      });
+    }
 
-    if (selectedColor === this.currentInkColor) {
+    if (correct) {
       // Correct!
       this.correctAttempts++;
       this.streak++;
@@ -146,6 +162,10 @@ class StroopGame {
     const avgRt = this.responseTimes.length > 0
       ? Math.round(this.responseTimes.reduce((a, b) => a + b, 0) / this.responseTimes.length)
       : 0;
+    const mean = (rows) => rows.length ? rows.reduce((a, b) => a + b, 0) / rows.length : 0;
+    const cong = this.trialLog.filter(t => t.correct && t.congruent).map(t => t.rt);
+    const inc = this.trialLog.filter(t => t.correct && !t.congruent).map(t => t.rt);
+    const interferenceMs = cong.length && inc.length ? mean(inc) - mean(cong) : 0;
 
     if (window.confettiEngine && this.score > 800) {
       window.confettiEngine.fire(80);
@@ -157,8 +177,9 @@ class StroopGame {
       score: this.score,
       domain: 'focus',
       accuracy: `${accuracy}%`,
-      details: `Avg RT: ${avgRt}ms | Correct: ${this.correctAttempts} / ${this.totalAttempts}`,
-      performanceRatio: Math.min(1, this.score / 2000)
+      details: `Avg RT: ${avgRt}ms | Ink cost: ${Math.round(interferenceMs)}ms | Correct: ${this.correctAttempts} / ${this.totalAttempts}`,
+      performanceRatio: Math.min(1, this.score / 2000),
+      signals: { interferenceMs, avgRt }
     });
   }
 

@@ -7,7 +7,8 @@ class DualNBackGame {
   constructor(container, onComplete) {
     this.container = container;
     this.onComplete = onComplete;
-    this.n = 2; // Default 2-back
+    const bonus = window.brainState ? Math.min(2, window.brainState.staircase('dual-nback')) : 0;
+    this.n = 2 + bonus;
     this.totalTrials = 20;
     this.trialIndex = 0;
     this.trialInterval = null;
@@ -150,6 +151,7 @@ class DualNBackGame {
   handlePosMatch() {
     if (this.userPosMatched) return;
     this.userPosMatched = true;
+    if (!this.respondedAt) this.respondedAt = Date.now();
     if (window.soundEngine) window.soundEngine.playTap(700);
     this.btnPos.classList.add('active-press');
   }
@@ -187,6 +189,19 @@ class DualNBackGame {
     } else if (this.userAudioMatched) {
       this.audioFalseAlarms++;
     }
+
+    const posOk = isPosMatch === this.userPosMatched;
+    const audioOk = isAudioMatch === this.userAudioMatched;
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'dual-nback',
+        domain: 'memory',
+        correct: posOk && audioOk,
+        rt: this.respondedAt ? Date.now() - this.respondedAt : this.trialDuration,
+        tag: 'n' + this.n
+      });
+    }
+    this.respondedAt = 0;
   }
 
   finishGame() {
@@ -212,7 +227,8 @@ class DualNBackGame {
       domain: 'memory',
       accuracy: `${accuracy}%`,
       details: `Visual Hits: ${this.posHits} | Audio Hits: ${this.audioHits} | Errors: ${totalErrors}`,
-      performanceRatio: accuracy / 100
+      performanceRatio: accuracy / 100,
+      signals: { n: this.n, accuracy }
     });
   }
 

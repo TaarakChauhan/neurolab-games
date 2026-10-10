@@ -104,6 +104,20 @@ class AppController {
         classRef: 'StroopGame'
       },
       {
+        id: 'interference',
+        title: 'Interference Protocol',
+        category: 'focus',
+        icon: '◎',
+        accent: '#ff3366',
+        desc: 'Two tasks share one board. SCAN the number, or name the INK. The milliseconds you lose on the switch are the measurement.',
+        neuroscience: 'Task-switch cost is the time the prefrontal cortex spends reconfiguring a rule. The color word is there to steal that time.',
+        difficulty: 'Hard',
+        duration: '~90 sec',
+        lab: 'Dual-task cost',
+        pips: 3,
+        classRef: 'InterferenceGame'
+      },
+      {
         id: 'tower-hanoi',
         title: 'Tower of Hanoi',
         category: 'logic',
@@ -180,6 +194,7 @@ class AppController {
     this.activeGameInstance = null;
     this.activeGameMeta = null;
     this.dailyWorkoutActive = false;
+    this.duelMode = false;
 
     this.initDOM();
     this.renderStats();
@@ -189,7 +204,9 @@ class AppController {
     // Deep-linking support (?game=chimp-test)
     const urlParams = new URLSearchParams(window.location.search);
     const gameParam = urlParams.get('game');
-    if (gameParam && this.gamesCatalog.some(g => g.id === gameParam)) {
+    if (urlParams.get('duel') === '1') {
+      this.launchGame('chimp-test', { duel: true });
+    } else if (gameParam && this.gamesCatalog.some(g => g.id === gameParam)) {
       this.launchGame(gameParam);
     }
   }
@@ -235,6 +252,13 @@ class AppController {
     if (barFill) barFill.style.width = `${pct}%`;
     if (barPct) barPct.innerText = `${pct}%`;
 
+    const rx = document.getElementById('workout-rx');
+    if (rx && daily.games) {
+      const names = daily.games.map(id => window.brainState.titleFor(id));
+      rx.innerText = daily.completed ? 'Protocol complete' : 'Protocol · ' + names.join('  ·  ');
+    }
+    this.renderLab();
+
     // Radar Domain Chips
     if (s.domains) {
       const dMem = document.getElementById('chip-val-memory');
@@ -249,7 +273,8 @@ class AppController {
       if (dSpa) dSpa.innerText = s.domains.spatial || 60;
     }
 
-    // Daily workout button state
+    this.refreshTabCounts();
+
     const btnDaily = document.getElementById('btn-daily-workout');
     if (btnDaily) {
       if (daily.completed) {
@@ -423,7 +448,28 @@ class AppController {
       brand.addEventListener('click', () => this.exitToHub());
     }
 
-    // Daily Workout Button
+    const btnHear = document.getElementById('btn-hear-mind');
+    if (btnHear) {
+      btnHear.addEventListener('click', () => this.replaySession());
+    }
+    const btnDuel = document.getElementById('btn-sealed-duel');
+    if (btnDuel) {
+      btnDuel.addEventListener('click', () => this.startSealedDuel());
+    }
+    const btnPalace = document.getElementById('btn-palace');
+    if (btnPalace) {
+      btnPalace.addEventListener('click', () => this.openPalace());
+    }
+    const btnSummaryHear = document.getElementById('btn-summary-hear');
+    if (btnSummaryHear) {
+      btnSummaryHear.addEventListener('click', () => {
+        if (window.soundEngine) window.soundEngine.playMind();
+        if (window.neuralField && window.brainState) {
+          window.neuralField.replay(window.brainState.data.ledger.slice(-18));
+        }
+      });
+    }
+
     const btnDaily = document.getElementById('btn-daily-workout');
     if (btnDaily) {
       btnDaily.addEventListener('click', () => this.startDailyWorkout());
@@ -485,9 +531,14 @@ class AppController {
     btn.title = isMuted ? 'Unmute Audio' : 'Mute Audio';
   }
 
-  launchGame(gameId) {
+  launchGame(gameId, opts) {
     const meta = this.gamesCatalog.find(g => g.id === gameId);
     if (!meta) return;
+    if (opts && Object.prototype.hasOwnProperty.call(opts, 'duel')) {
+      this.duelMode = !!opts.duel;
+    }
+    window.NEUROLAB_DUEL = !!(this.duelMode && gameId === 'chimp-test');
+    if (window.soundEngine) window.soundEngine.phrase = [];
 
     if (this.activeGameInstance && this.activeGameInstance.destroy) {
       this.activeGameInstance.destroy();
@@ -532,7 +583,8 @@ class AppController {
       result.gameId,
       result.score,
       result.domain,
-      result.performanceRatio || 0.75
+      result.performanceRatio || 0.75,
+      result.signals || null
     );
 
     this.renderStats();
@@ -548,6 +600,8 @@ class AppController {
     if (summaryDet) summaryDet.innerText = result.details || '';
     const summaryNq = document.getElementById('summary-nq-change');
     if (summaryNq) summaryNq.innerText = `Updated Cognitive Quotient (NQ): ${record.nq}`;
+    const summaryLab = document.getElementById('summary-lab');
+    if (summaryLab) summaryLab.innerText = record.note || '';
 
     const newHighBadge = document.getElementById('summary-new-record') || document.getElementById('summary-new-high');
     if (newHighBadge) {
@@ -569,7 +623,153 @@ class AppController {
     }
   }
 
+  refreshTabCounts() {
+    const counts = { all: this.gamesCatalog.length };
+    this.gamesCatalog.forEach(game => {
+      counts[game.category] = (counts[game.category] || 0) + 1;
+    });
+    const labels = {
+      all: 'All Games',
+      memory: 'Memory',
+      focus: 'Focus',
+      speed: 'Speed',
+      logic: 'Logic',
+      spatial: 'Spatial'
+    };
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      const cat = btn.dataset.category;
+      const spans = btn.querySelectorAll('span');
+      const label = spans[spans.length - 1];
+      if (label && labels[cat]) label.textContent = `${labels[cat]} (${counts[cat] || 0})`;
+    });
+    const search = document.getElementById('game-search-input');
+    if (search) search.placeholder = `Search ${this.gamesCatalog.length} cognitive drills...`;
+  }
+
+  renderLab() {
+    const note = document.getElementById('lab-note');
+    if (note && window.brainState) note.innerText = window.brainState.labNote();
+    const code = document.getElementById('duel-code');
+    if (code && window.brainState) code.innerText = window.brainState.duelCode();
+    this.drawSpark();
+  }
+
+  drawSpark() {
+    const canvas = document.getElementById('nq-spark');
+    if (!canvas || !canvas.getContext || !window.brainState) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width || 280;
+    const h = rect.height || 48;
+    canvas.width = Math.max(1, Math.floor(w * dpr));
+    canvas.height = Math.max(1, Math.floor(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const hist = window.brainState.data.nqHistory || [];
+    if (hist.length < 2) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px JetBrains Mono, monospace';
+      ctx.fillText('The NQ trace appears after two drills', 4, h * 0.62);
+      return;
+    }
+    const vals = hist.map(point => point.nq);
+    const min = Math.min.apply(null, vals) - 4;
+    const max = Math.max.apply(null, vals) + 4;
+    const span = Math.max(1, max - min);
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      const x = 4 + (i / (vals.length - 1)) * (w - 8);
+      const y = h - 8 - ((v - min) / span) * (h - 16);
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    });
+    ctx.strokeStyle = '#00f5ff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(0, 245, 255, 0.45)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  replaySession() {
+    const trials = window.brainState ? window.brainState.data.ledger.slice(-24) : [];
+    if (window.soundEngine) window.soundEngine.playMind(trials);
+    if (window.neuralField) window.neuralField.replay(trials);
+  }
+
+  startSealedDuel() {
+    this.dailyWorkoutActive = false;
+    this.launchGame('chimp-test', { duel: true });
+  }
+
+  openPalace() {
+    const modal = document.getElementById('palace-modal');
+    const body = document.getElementById('palace-body');
+    if (!modal || !body) return;
+    const palace = window.brainState && window.brainState.data.palace;
+    if (!palace || !palace.cells || !palace.cells.length) {
+      body.innerHTML = '<p class="palace-empty">Play Memory Matrix. The last pattern you saw is left in this room, and you can walk back in to recall it.</p>';
+      modal.classList.add('active');
+      return;
+    }
+    const size = palace.size || 3;
+    const targets = new Set(palace.cells);
+    body.innerHTML = `
+      <p class="palace-empty">The pattern is dark. Tap the cells you remember, then reveal the room.</p>
+      <div class="palace-grid" id="palace-grid" style="grid-template-columns: repeat(${size}, 52px);"></div>
+    `;
+    const grid = body.querySelector('#palace-grid');
+    const picked = new Set();
+    for (let i = 0; i < size * size; i++) {
+      const cell = document.createElement('button');
+      cell.className = 'palace-cell';
+      cell.type = 'button';
+      cell.addEventListener('click', () => {
+        if (picked.has(i)) {
+          picked.delete(i);
+          cell.classList.remove('picked');
+        } else {
+          picked.add(i);
+          cell.classList.add('picked');
+        }
+      });
+      grid.appendChild(cell);
+    }
+    const reveal = document.createElement('button');
+    reveal.className = 'btn-primary';
+    reveal.type = 'button';
+    reveal.style.marginTop = '1rem';
+    reveal.innerText = 'Reveal the room';
+    reveal.addEventListener('click', () => {
+      let hits = 0;
+      grid.querySelectorAll('.palace-cell').forEach((cell, i) => {
+        const wanted = targets.has(i);
+        const chose = picked.has(i);
+        cell.classList.toggle('hit', wanted && chose);
+        cell.classList.toggle('miss', !wanted && chose);
+        cell.classList.toggle('ghost', wanted && !chose);
+        if (wanted && chose) hits += 1;
+      });
+      const ratio = targets.size ? hits / targets.size : 0;
+      if (window.brainState) {
+        window.brainState.logTrial({
+          gameId: 'memory-matrix',
+          domain: 'memory',
+          correct: ratio >= 0.99,
+          rt: 0,
+          tag: 'palace'
+        });
+      }
+      reveal.innerText = hits + ' / ' + targets.size + ' cells returned';
+      reveal.disabled = true;
+    });
+    body.appendChild(reveal);
+    modal.classList.add('active');
+  }
+
   startDailyWorkout() {
+    this.duelMode = false;
     this.dailyWorkoutActive = true;
     const daily = window.brainState.data.dailyWorkout;
     const gameId = daily.games[daily.progress] || daily.games[0];
@@ -619,6 +819,8 @@ class AppController {
     this.activeGameInstance = null;
     this.activeGameMeta = null;
     this.dailyWorkoutActive = false;
+    this.duelMode = false;
+    window.NEUROLAB_DUEL = false;
 
     this.arenaSection.classList.remove('active');
     this.heroSection.style.display = 'grid';

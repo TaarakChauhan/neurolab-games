@@ -12,6 +12,8 @@ class SchulteGridGame {
     this.startTime = null;
     this.timerInterval = null;
     this.elapsedMs = 0;
+    this.lastHit = null;
+    this.misses = 0;
 
     this.render();
     this.start();
@@ -66,6 +68,7 @@ class SchulteGridGame {
     });
 
     this.startTime = Date.now();
+    this.lastHit = this.startTime;
     this.timerInterval = setInterval(() => {
       this.elapsedMs = Date.now() - this.startTime;
       this.timerEl.innerText = (this.elapsedMs / 1000).toFixed(2);
@@ -73,9 +76,21 @@ class SchulteGridGame {
   }
 
   handleTileClick(tile, num) {
+    const now = Date.now();
+    const rt = now - (this.lastHit || now);
     if (num === this.nextTarget) {
       tile.classList.add('found');
       if (window.soundEngine) window.soundEngine.playTap(450 + num * 25);
+      if (window.brainState) {
+        window.brainState.logTrial({
+          gameId: 'schulte-grid',
+          domain: 'speed',
+          correct: true,
+          rt,
+          tag: 'n' + num
+        });
+      }
+      this.lastHit = now;
 
       this.nextTarget++;
 
@@ -85,6 +100,16 @@ class SchulteGridGame {
         this.targetEl.innerText = this.nextTarget;
       }
     } else {
+      this.misses += 1;
+      if (window.brainState) {
+        window.brainState.logTrial({
+          gameId: 'schulte-grid',
+          domain: 'speed',
+          correct: false,
+          rt,
+          tag: 'miss'
+        });
+      }
       if (window.soundEngine) window.soundEngine.playError();
       tile.style.borderColor = 'var(--crimson-alert)';
       setTimeout(() => tile.style.borderColor = '', 300);
@@ -116,7 +141,8 @@ class SchulteGridGame {
       domain: 'speed',
       accuracy: `${totalSec.toFixed(2)}s`,
       details: rating,
-      performanceRatio: Math.max(0.2, Math.min(1, (60 - totalSec) / 40))
+      performanceRatio: Math.max(0.2, Math.min(1, (60 - totalSec) / 40)),
+      signals: { seconds: totalSec, misses: this.misses }
     });
   }
 
