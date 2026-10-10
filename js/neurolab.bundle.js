@@ -188,6 +188,45 @@ class SoundEngine {
       osc.stop(startTime + 0.6);
     });
   }
+
+  /* A finished drill becomes a short piece. Correct notes sit on a
+     pentatonic. A miss detunes. Faster taps are shorter. */
+  rememberTrial(trial) {
+    if (!this.phrase) this.phrase = [];
+    this.phrase.push({
+      correct: !!trial.correct,
+      rt: trial.rt || 600,
+      domain: trial.domain || 'memory'
+    });
+    if (this.phrase.length > 48) this.phrase.shift();
+  }
+
+  playMind(trials) {
+    const notes = (trials && trials.length ? trials : this.phrase || []).slice(-32);
+    if (!notes.length || this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const scale = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+    let t = this.ctx.currentTime + 0.06;
+    notes.forEach((note, i) => {
+      const base = scale[i % scale.length];
+      const freq = note.correct ? base : base * 0.943;
+      const dur = Math.max(0.09, Math.min(0.32, (note.rt || 560) / 2200));
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = note.correct ? 'triangle' : 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(note.correct ? 0.09 : 0.05, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+      t += dur * 0.82;
+    });
+  }
 }
 
 window.soundEngine = new SoundEngine();
@@ -288,23 +327,91 @@ class ConfettiEngine {
 
 window.confettiEngine = new ConfettiEngine();
 /* ==========================================================================
-   NEUROLAB - Cognitive State & Progress Tracking Engine
-   Local storage persistence, Neuro Quotient (NQ) algorithm & domain metrics
+   NEUROLAB - Cognitive State, Trial Ledger & Protocol Engine
+   Every tap is stored. The Neuro Quotient is rebuilt from those taps.
    ========================================================================== */
 
 class BrainState {
   constructor() {
-    this.STORAGE_KEY = 'neurolab_state_v1';
-    this.data = this.loadState();
-    this.verifyStreak();
+    this.STORAGE_KEY = 'neurolab_state_v2';
+    this.LEGACY_KEY = 'neurolab_state_v1';
+    this.data = this.normalize(this.loadState());
+    this.verifyCalendar();
+  }
+
+  catalog() {
+    return [
+      { id: 'dual-nback', domain: 'memory', title: 'Dual N-Back' },
+      { id: 'chimp-test', domain: 'memory', title: 'Ayumu Chimp Test' },
+      { id: 'memory-matrix', domain: 'memory', title: 'Memory Matrix' },
+      { id: 'simon-seq', domain: 'memory', title: 'Simon Sequence' },
+      { id: 'schulte-grid', domain: 'speed', title: 'Schulte Grid' },
+      { id: 'speed-math', domain: 'speed', title: 'Speed Math' },
+      { id: 'stroop', domain: 'focus', title: 'Stroop' },
+      { id: 'interference', domain: 'focus', title: 'Interference' },
+      { id: 'tower-hanoi', domain: 'logic', title: 'Tower of Hanoi' },
+      { id: 'game-2048', domain: 'logic', title: '2048' },
+      { id: 'lights-out', domain: 'logic', title: 'Lights Out' },
+      { id: 'wordle', domain: 'logic', title: 'Wordle' },
+      { id: 'mental-rotation', domain: 'spatial', title: 'Mental Rotation' }
+    ];
+  }
+
+  titleFor(gameId) {
+    const found = this.catalog().find(g => g.id === gameId);
+    return found ? found.title : gameId;
+  }
+
+  today() {
+    const d = new Date();
+    const z = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+  }
+
+  daysBetween(a, b) {
+    const da = new Date(a + 'T00:00:00');
+    const db = new Date(b + 'T00:00:00');
+    return Math.round((db - da) / 86400000);
+  }
+
+  hash(str) {
+    let h = 2166136261;
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  /* Mulberry32. Same seed, same boards, on every machine. */
+  rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  dailySeed() {
+    return this.hash(this.today() + ':neurolab-duel');
+  }
+
+  duelCode() {
+    const compact = this.today().replace(/-/g, '');
+    return 'AYU-' + compact + '-' + String(this.dailySeed() % 10000).padStart(4, '0');
   }
 
   getDefaultState() {
+    const today = this.today();
     return {
-      nq: 1040, // Base Neuro Quotient (Normalized 800 - 1600 scale)
+      nq: 1040,
       totalGamesPlayed: 0,
-      streak: 1,
-      lastPlayedDate: new Date().toISOString().split('T')[0],
+      streak: 0,
+      lastPlayedDate: null,
       domains: {
         memory: 68,
         speed: 62,
@@ -313,8 +420,13 @@ class BrainState {
         spatial: 60
       },
       highScores: {},
+      levels: {},
+      ledger: [],
+      sessions: [],
+      nqHistory: [],
+      palace: null,
       dailyWorkout: {
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         games: ['chimp-test', 'stroop', 'game-2048'],
         completed: false,
         progress: 0
@@ -322,12 +434,40 @@ class BrainState {
     };
   }
 
+  normalize(data) {
+    const base = this.getDefaultState();
+    const merged = {
+      ...base,
+      ...data,
+      domains: { ...base.domains, ...(data && data.domains) },
+      highScores: { ...(data && data.highScores) },
+      levels: { ...(data && data.levels) },
+      ledger: Array.isArray(data && data.ledger) ? data.ledger : [],
+      sessions: Array.isArray(data && data.sessions) ? data.sessions : [],
+      nqHistory: Array.isArray(data && data.nqHistory) ? data.nqHistory : [],
+      dailyWorkout: { ...base.dailyWorkout, ...(data && data.dailyWorkout) }
+    };
+    if (typeof merged.nq !== 'number' || merged.nq < 800 || merged.nq > 1600) {
+      merged.nq = 1040;
+    }
+    return merged;
+  }
+
   loadState() {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return { ...this.getDefaultState(), ...parsed };
+      if (stored) return JSON.parse(stored);
+      const legacy = localStorage.getItem(this.LEGACY_KEY);
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        return {
+          ...parsed,
+          ledger: [],
+          sessions: [],
+          levels: {},
+          nqHistory: parsed.nq ? [{ t: Date.now(), nq: parsed.nq }] : [],
+          palace: null
+        };
       }
     } catch (e) {
       console.warn('Failed to parse localStorage state', e);
@@ -343,63 +483,148 @@ class BrainState {
     }
   }
 
-  verifyStreak() {
-    const today = new Date().toISOString().split('T')[0];
-    const last = this.data.lastPlayedDate;
-
-    if (last !== today) {
-      const lastDate = new Date(last);
-      const currDate = new Date(today);
-      const diffDays = Math.round((currDate - lastDate) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 1) {
-        // Consecutive day
-        this.data.streak += 1;
-      } else if (diffDays > 1) {
-        // Streak reset
-        this.data.streak = 1;
-      }
-
-      this.data.lastPlayedDate = today;
-
-      // Reset daily workout for new day
-      if (this.data.dailyWorkout.date !== today) {
-        const pool = ['dual-nback', 'chimp-test', 'stroop', 'schulte-grid', 'memory-matrix', 'simon-seq', 'tower-hanoi', 'game-2048', 'speed-math', 'lights-out', 'wordle', 'mental-rotation'];
-        // Pick 3 varied games
-        const shuffled = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
-        this.data.dailyWorkout = {
-          date: today,
-          games: shuffled,
-          completed: false,
-          progress: 0
-        };
-      }
+  queueSave() {
+    if (typeof setTimeout !== 'function') {
       this.saveState();
+      return;
     }
+    clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => this.saveState(), 350);
   }
 
-  recordGame(gameId, score, domain, performanceRatio = 1.0) {
-    this.data.totalGamesPlayed += 1;
+  verifyCalendar() {
+    const today = this.today();
+    const last = this.data.lastPlayedDate;
+    if (last && this.daysBetween(last, today) > 1) {
+      this.data.streak = 0;
+    }
+    const workout = this.data.dailyWorkout;
+    if (!workout || workout.date !== today || !workout.prescribed) {
+      this.data.dailyWorkout = {
+        date: today,
+        games: this.composeWorkout(today),
+        completed: false,
+        progress: 0,
+        prescribed: true
+      };
+    }
+    this.saveState();
+  }
 
-    // Update High Score
+  /* Three drills aimed at the thinnest domains. Stable for the whole day. */
+  composeWorkout(date) {
+    const roll = this.rng(this.hash(String(date) + ':protocol'));
+    const ranked = Object.entries(this.data.domains).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
+    const picked = [];
+    ranked.forEach(([domain]) => {
+      if (picked.length >= 3) return;
+      const pool = this.catalog().filter(g => g.domain === domain && picked.indexOf(g.id) === -1);
+      if (!pool.length) return;
+      picked.push(pool[Math.floor(roll() * pool.length)].id);
+    });
+    return picked;
+  }
+
+  markPlayedToday() {
+    const today = this.today();
+    if (this.data.lastPlayedDate === today) return;
+    const gap = this.data.lastPlayedDate ? this.daysBetween(this.data.lastPlayedDate, today) : 999;
+    this.data.streak = gap === 1 ? (this.data.streak || 0) + 1 : 1;
+    this.data.lastPlayedDate = today;
+  }
+
+  staircase(gameId) {
+    return this.data.levels[gameId] || 0;
+  }
+
+  bestSpan() {
+    let best = 0;
+    this.data.sessions.forEach(s => {
+      if (s.gameId === 'chimp-test' && s.signals && s.signals.span > best) best = s.signals.span;
+    });
+    return best;
+  }
+
+  logTrial(trial) {
+    if (!trial) return;
+    const row = {
+      gameId: trial.gameId || 'unknown',
+      domain: trial.domain || 'memory',
+      correct: !!trial.correct,
+      rt: Math.max(0, Math.round(trial.rt || 0)),
+      tag: trial.tag || '',
+      ts: Date.now()
+    };
+    this.data.ledger.push(row);
+    if (this.data.ledger.length > 480) {
+      this.data.ledger.splice(0, this.data.ledger.length - 480);
+    }
+    if (window.soundEngine && window.soundEngine.rememberTrial) {
+      window.soundEngine.rememberTrial(row);
+    }
+    if (window.neuralField && window.neuralField.pulse) {
+      window.neuralField.pulse(row.domain, row.correct);
+    }
+    this.queueSave();
+    return row;
+  }
+
+  recordGame(gameId, score, domain, performanceRatio = 1.0, signals = null) {
+    const ratio = Math.max(0, Math.min(1, Number(performanceRatio) || 0));
+    this.data.totalGamesPlayed += 1;
+    this.markPlayedToday();
+
     const prevHigh = this.data.highScores[gameId] || 0;
     const isNewHigh = score > prevHigh;
-    if (isNewHigh) {
-      this.data.highScores[gameId] = score;
-    }
+    if (isNewHigh) this.data.highScores[gameId] = score;
 
-    // Adaptive Domain Score Adjust (Bounded 30 to 100)
     if (domain && this.data.domains[domain] !== undefined) {
       const current = this.data.domains[domain];
-      const delta = (performanceRatio - 0.5) * 4; // Scaled adjustment
-      this.data.domains[domain] = Math.min(100, Math.max(30, Math.round(current + delta)));
+      const delta = (ratio - 0.5) * 6;
+      let next = current + delta;
+      const recent = this.data.sessions.filter(s => s.domain === domain).slice(-6);
+      if (recent.length >= 3) {
+        const evidence = recent.reduce((sum, s) => sum + s.ratio, 0) / recent.length;
+        const target = 30 + evidence * 70;
+        next = next * 0.65 + target * 0.35;
+      }
+      this.data.domains[domain] = Math.min(100, Math.max(30, Math.round(next)));
     }
 
-    // Update Neuro Quotient (NQ)
+    const lvl = this.data.levels[gameId] || 0;
+    if (ratio >= 0.82) this.data.levels[gameId] = Math.min(6, lvl + 1);
+    else if (ratio < 0.4) this.data.levels[gameId] = Math.max(0, lvl - 1);
+
     const avgDomain = Object.values(this.data.domains).reduce((a, b) => a + b, 0) / 5;
     this.data.nq = Math.round(800 + (avgDomain / 100) * 800);
+    this.data.nq = Math.min(1600, Math.max(800, this.data.nq));
 
-    // Update Daily Workout if applicable
+    const session = {
+      t: Date.now(),
+      date: this.today(),
+      gameId,
+      domain,
+      score,
+      ratio,
+      signals: signals || {}
+    };
+    this.data.sessions.push(session);
+    if (this.data.sessions.length > 80) {
+      this.data.sessions.splice(0, this.data.sessions.length - 80);
+    }
+    this.data.nqHistory.push({ t: session.t, nq: this.data.nq });
+    if (this.data.nqHistory.length > 48) {
+      this.data.nqHistory.splice(0, this.data.nqHistory.length - 48);
+    }
+    if (signals && signals.palace && signals.palace.cells) {
+      this.data.palace = {
+        size: signals.palace.size || 3,
+        cells: signals.palace.cells.slice(0, 36),
+        gameId,
+        t: Date.now()
+      };
+    }
+
     if (!this.data.dailyWorkout.completed && this.data.dailyWorkout.games.includes(gameId)) {
       this.data.dailyWorkout.progress += 1;
       if (this.data.dailyWorkout.progress >= this.data.dailyWorkout.games.length) {
@@ -409,23 +634,63 @@ class BrainState {
 
     this.saveState();
 
-    // Trigger update callbacks
-    if (window.radarChart) {
-      window.radarChart.update(this.data.domains);
-    }
-    if (window.app) {
-      window.app.renderStats();
-    }
+    if (window.radarChart) window.radarChart.update(this.data.domains);
+    if (window.neuralField && window.neuralField.sync) window.neuralField.sync(this.data.domains);
+    if (window.app) window.app.renderStats();
 
     return {
       isNewHigh,
       nq: this.data.nq,
-      domainScore: this.data.domains[domain]
+      domainScore: domain ? this.data.domains[domain] : null,
+      note: this.labNote()
     };
   }
 
   getHighScore(gameId) {
     return this.data.highScores[gameId] || 0;
+  }
+
+  labNote() {
+    const sessions = this.data.sessions;
+    if (!sessions.length) {
+      const names = (this.data.dailyWorkout.games || []).map(id => this.titleFor(id)).join(' · ');
+      return 'The ledger is empty. Finish a drill and this line will name the cost of the word, the span you held, and the domain that is thin. Today’s protocol is already written: ' + names + '.';
+    }
+
+    const last = sessions[sessions.length - 1];
+    const weakest = Object.entries(this.data.domains).sort((a, b) => a[1] - b[1])[0];
+    const lines = [];
+    lines.push(this.titleFor(last.gameId) + ' closed at ' + Math.round(last.ratio * 100) + ' on the scale.');
+
+    const sig = last.signals || {};
+    if (typeof sig.interferenceMs === 'number' && sig.interferenceMs !== 0) {
+      const ms = Math.round(sig.interferenceMs);
+      lines.push(ms > 30
+        ? 'Reading the word cost ' + ms + ' ms against the ink.'
+        : 'Ink and word landed within ' + Math.abs(ms) + ' ms of each other.');
+    }
+    if (typeof sig.span === 'number') {
+      lines.push('Span held at ' + sig.span + '. You took ' + (sig.youWins || 0) + ' rounds, Ayumu took ' + (sig.ayumuWins || 0) + '.');
+    }
+    if (typeof sig.switchCostMs === 'number') {
+      lines.push('Changing tasks cost ' + Math.round(sig.switchCostMs) + ' ms.');
+    }
+    if (typeof sig.seconds === 'number') {
+      lines.push('The grid fell in ' + sig.seconds.toFixed(2) + 's.');
+    }
+
+    const recent = this.data.ledger.slice(-12);
+    if (recent.length >= 6) {
+      const first = recent.slice(0, 4).reduce((s, t) => s + t.rt, 0) / 4;
+      const tail = recent.slice(-4).reduce((s, t) => s + t.rt, 0) / 4;
+      if (tail > first * 1.35 && tail > 400) {
+        lines.push('The last taps slowed. Stop while the trace is still clean.');
+      }
+    }
+
+    const protocol = (this.data.dailyWorkout.games || []).map(id => this.titleFor(id)).join(' · ');
+    lines.push('Thin domain: ' + weakest[0] + ' (' + weakest[1] + '). Protocol: ' + protocol + '.');
+    return lines.join(' ');
   }
 }
 
@@ -481,6 +746,7 @@ class BrainRadarChart {
   }
 
   update(domainObj, instant = false) {
+    if (!this.axes || !domainObj) return;
     this.targetValues = this.axes.map(axis => domainObj[axis.key] || 50);
     if (instant) {
       this.currentValues = [...this.targetValues];
@@ -630,7 +896,17 @@ class NeuralParticles {
     this.pulses = [];
     this.mouse = { x: null, y: null, radius: 175 };
 
-    this.palette = ['#00f5ff', '#9d65ff', '#10b981', '#ffaa00', '#ff3366'];
+    this.domains = [
+      { key: 'memory', color: '#9d65ff' },
+      { key: 'speed', color: '#00f5ff' },
+      { key: 'focus', color: '#ff3366' },
+      { key: 'logic', color: '#10b981' },
+      { key: 'spatial', color: '#ffaa00' }
+    ];
+    this.domainScores = { memory: 68, speed: 62, focus: 74, logic: 65, spatial: 60 };
+    if (window.brainState && window.brainState.data) {
+      this.domainScores = { ...this.domainScores, ...window.brainState.data.domains };
+    }
 
     this.resize();
     this.initNodes();
@@ -668,18 +944,48 @@ class NeuralParticles {
     const nodeCount = Math.max(40, Math.min(90, count));
 
     for (let i = 0; i < nodeCount; i++) {
-      const color = this.palette[Math.floor(Math.random() * this.palette.length)];
+      const lobe = this.domains[i % this.domains.length];
+      const band = i % this.domains.length;
       this.nodes.push({
-        x: Math.random() * this.width,
+        x: ((band + Math.random()) / this.domains.length) * this.width,
         y: Math.random() * this.height,
-        vx: (Math.random() - 0.5) * 0.55,
-        vy: (Math.random() - 0.5) * 0.55,
+        vx: (Math.random() - 0.5) * 0.45,
+        vy: (Math.random() - 0.5) * 0.45,
         radius: 1.5 + Math.random() * 2.2,
-        color: color,
-        alpha: 0.3 + Math.random() * 0.5,
+        color: lobe.color,
+        domain: lobe.key,
+        alpha: 0.35 + Math.random() * 0.5,
         pulseOffset: Math.random() * Math.PI * 2
       });
     }
+  }
+
+  sync(domains) {
+    if (domains) this.domainScores = { ...this.domainScores, ...domains };
+  }
+
+  pulse(domain, correct = true) {
+    if (!this.nodes || !this.nodes.length) return;
+    const pool = this.nodes.filter(n => n.domain === domain);
+    const src = pool.length ? pool : this.nodes;
+    const a = src[Math.floor(Math.random() * src.length)];
+    const b = src[Math.floor(Math.random() * src.length)];
+    this.pulses.push({
+      x: a.x,
+      y: a.y,
+      tx: b.x,
+      ty: b.y,
+      t: 0,
+      color: correct ? a.color : '#ff3366'
+    });
+    if (this.pulses.length > 28) this.pulses.shift();
+  }
+
+  replay(trials) {
+    if (typeof setTimeout !== 'function') return;
+    (trials || []).slice(-18).forEach((trial, i) => {
+      setTimeout(() => this.pulse(trial.domain, trial.correct !== false), i * 130);
+    });
   }
 
   animate() {
@@ -721,14 +1027,18 @@ class NeuralParticles {
         const dy = n.y - n2.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < 140) {
-          const lineAlpha = (1 - dist / 140) * 0.26;
+        const same = n.domain && n.domain === n2.domain;
+        const score = (this.domainScores && this.domainScores[n.domain]) || 60;
+        const reach = same ? 128 + (score - 50) * 0.55 : 96;
+        if (dist < reach) {
+          const weight = same ? 0.55 + (score / 100) * 1.7 : 0.55;
+          const lineAlpha = (1 - dist / reach) * (same ? 0.34 : 0.14);
           this.ctx.beginPath();
           this.ctx.moveTo(n.x, n.y);
           this.ctx.lineTo(n2.x, n2.y);
-          this.ctx.strokeStyle = n.color;
+          this.ctx.strokeStyle = same ? n.color : '#94a3b8';
           this.ctx.globalAlpha = lineAlpha;
-          this.ctx.lineWidth = 0.9;
+          this.ctx.lineWidth = weight;
           this.ctx.stroke();
 
           // Occasional synaptic electric pulse spark
@@ -765,13 +1075,29 @@ class NeuralParticles {
       }
     }
 
+    for (let p = this.pulses.length - 1; p >= 0; p--) {
+      const pulse = this.pulses[p];
+      pulse.t += 0.035;
+      if (pulse.t >= 1) {
+        this.pulses.splice(p, 1);
+        continue;
+      }
+      const px = pulse.x + (pulse.tx - pulse.x) * pulse.t;
+      const py = pulse.y + (pulse.ty - pulse.y) * pulse.t;
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+      this.ctx.fillStyle = pulse.color;
+      this.ctx.globalAlpha = (1 - pulse.t) * 0.9;
+      this.ctx.fill();
+    }
+
     this.ctx.globalAlpha = 1;
     requestAnimationFrame(() => this.animate());
   }
 }
 
 window.initNeuralParticles = () => {
-  new NeuralParticles();
+  window.neuralField = new NeuralParticles();
 };
 /* ==========================================================================
    NEUROLAB - Game 1: Dual N-Back
@@ -782,7 +1108,8 @@ class DualNBackGame {
   constructor(container, onComplete) {
     this.container = container;
     this.onComplete = onComplete;
-    this.n = 2; // Default 2-back
+    const bonus = window.brainState ? Math.min(2, window.brainState.staircase('dual-nback')) : 0;
+    this.n = 2 + bonus;
     this.totalTrials = 20;
     this.trialIndex = 0;
     this.trialInterval = null;
@@ -925,6 +1252,7 @@ class DualNBackGame {
   handlePosMatch() {
     if (this.userPosMatched) return;
     this.userPosMatched = true;
+    if (!this.respondedAt) this.respondedAt = Date.now();
     if (window.soundEngine) window.soundEngine.playTap(700);
     this.btnPos.classList.add('active-press');
   }
@@ -962,6 +1290,19 @@ class DualNBackGame {
     } else if (this.userAudioMatched) {
       this.audioFalseAlarms++;
     }
+
+    const posOk = isPosMatch === this.userPosMatched;
+    const audioOk = isAudioMatch === this.userAudioMatched;
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'dual-nback',
+        domain: 'memory',
+        correct: posOk && audioOk,
+        rt: this.respondedAt ? Date.now() - this.respondedAt : this.trialDuration,
+        tag: 'n' + this.n
+      });
+    }
+    this.respondedAt = 0;
   }
 
   finishGame() {
@@ -987,7 +1328,8 @@ class DualNBackGame {
       domain: 'memory',
       accuracy: `${accuracy}%`,
       details: `Visual Hits: ${this.posHits} | Audio Hits: ${this.audioHits} | Errors: ${totalErrors}`,
-      performanceRatio: accuracy / 100
+      performanceRatio: accuracy / 100,
+      signals: { n: this.n, accuracy }
     });
   }
 
@@ -1000,7 +1342,7 @@ class DualNBackGame {
 window.DualNBackGame = DualNBackGame;
 /* ==========================================================================
    NEUROLAB - Game 2: Chimp Test (Ayumu Primate Memory Benchmark)
-   Tests rapid visuospatial working memory and photographic recall
+   A living rival plays the same board. Its pace tightens as your span grows.
    ========================================================================== */
 
 class ChimpTestGame {
@@ -1009,18 +1351,43 @@ class ChimpTestGame {
     this.onComplete = onComplete;
     this.rows = 5;
     this.cols = 8;
-    this.level = 4; // Start with 4 numbers
+    const bonus = window.brainState ? window.brainState.staircase('chimp-test') : 0;
+    this.level = 4 + Math.min(3, bonus);
     this.strikes = 0;
     this.maxStrikes = 3;
     this.currentExpected = 1;
-    this.tiles = []; // Active tiles on board
+    this.tiles = [];
     this.isMasked = false;
+    this.youWins = 0;
+    this.ayumuWins = 0;
+    this.ayumuAt = 0;
+    this.roundClaimed = false;
+    this.duel = !!window.NEUROLAB_DUEL;
+    this.rng = this.duel && window.brainState ? window.brainState.rng(window.brainState.dailySeed()) : null;
+    this.boards = this.duel ? this.precomputeBoards() : null;
 
     this.render();
     this.startRound();
   }
 
+  precomputeBoards() {
+    const boards = {};
+    const total = this.rows * this.cols;
+    for (let level = 4; level <= 12; level++) {
+      const indices = [];
+      let guard = 0;
+      while (indices.length < level && guard < 800) {
+        guard++;
+        const rand = Math.floor(this.rng() * total);
+        if (indices.indexOf(rand) === -1) indices.push(rand);
+      }
+      boards[level] = indices;
+    }
+    return boards;
+  }
+
   render() {
+    const code = this.duel && window.brainState ? window.brainState.duelCode() : '';
     this.container.innerHTML = `
       <div class="game-stage-wrapper">
         <div class="chimp-container">
@@ -1033,6 +1400,12 @@ class ChimpTestGame {
             </div>
           </div>
 
+          <div class="ayumu-race" id="ayumu-race">
+            <span class="ayumu-side you" id="ayumu-you">YOU 0</span>
+            <span class="ayumu-status" id="ayumu-status">${this.duel ? 'Sealed board ' + code : 'Ayumu is watching the same tiles'}</span>
+            <span class="ayumu-side him" id="ayumu-him">AYUMU 0</span>
+          </div>
+
           <div class="chimp-board" id="chimp-board">
             ${Array.from({ length: this.rows * this.cols })
               .map((_, i) => `<div class="chimp-cell" data-idx="${i}"></div>`)
@@ -1043,26 +1416,48 @@ class ChimpTestGame {
     `;
 
     this.boardEl = this.container.querySelector('#chimp-board');
+    this.raceStatus = this.container.querySelector('#ayumu-status');
+    this.youEl = this.container.querySelector('#ayumu-you');
+    this.himEl = this.container.querySelector('#ayumu-him');
+  }
+
+  ayumuPace() {
+    const span = window.brainState ? window.brainState.bestSpan() : 0;
+    if (span >= 9) return 180;
+    if (span >= 7) return 250;
+    if (span >= 5) return 360;
+    return 520;
   }
 
   startRound() {
+    this.stopAyumu();
     this.currentExpected = 1;
     this.isMasked = false;
-    document.getElementById('chimp-num-count').innerText = this.level;
+    this.ayumuAt = 0;
+    this.roundClaimed = false;
+    this.choiceStartedAt = Date.now();
+    const countEl = document.getElementById('chimp-num-count');
+    if (countEl) countEl.innerText = this.level;
+    const code = this.duel && window.brainState ? window.brainState.duelCode() : '';
+    this.paintRace(code ? code + ' · click 1, then you both race' : 'Click 1. Then both of you are racing.');
 
-    // Clear board cells
+    if (!this.boardEl) return;
+
     const cells = this.boardEl.querySelectorAll('.chimp-cell');
-    cells.forEach(c => c.innerHTML = '');
+    cells.forEach(c => { c.innerHTML = ''; });
 
-    // Pick unique random positions
     const totalCells = this.rows * this.cols;
-    const indices = [];
-    while (indices.length < this.level) {
-      const rand = Math.floor(Math.random() * totalCells);
-      if (!indices.includes(rand)) indices.push(rand);
+    let indices;
+    if (this.boards && this.boards[this.level]) {
+      indices = this.boards[this.level].slice();
+    } else {
+      indices = [];
+      while (indices.length < this.level) {
+        const rand = Math.floor(Math.random() * totalCells);
+        if (indices.indexOf(rand) === -1) indices.push(rand);
+      }
     }
 
-    // Place tiles 1 to N
     this.tiles = indices.map((cellIdx, valIdx) => {
       const num = valIdx + 1;
       const cell = cells[cellIdx];
@@ -1077,36 +1472,97 @@ class ChimpTestGame {
     });
   }
 
+  paintRace(text) {
+    if (this.youEl) this.youEl.innerText = 'YOU ' + this.youWins;
+    if (this.himEl) this.himEl.innerText = 'AYUMU ' + this.ayumuWins;
+    if (this.raceStatus && text) this.raceStatus.innerText = text;
+  }
+
+  markAyumu(num) {
+    this.tiles.forEach(t => t.classList.remove('ayumu-ghost'));
+    const tile = this.tiles.find(t => parseInt(t.dataset.value, 10) === num);
+    if (tile) tile.classList.add('ayumu-ghost');
+  }
+
+  startAyumu() {
+    this.stopAyumu();
+    this.ayumuAt = 1;
+    const pace = this.ayumuPace();
+    const step = () => {
+      if (this.roundClaimed || !this.isMasked) return;
+      this.ayumuAt += 1;
+      this.markAyumu(this.ayumuAt);
+      this.paintRace('Ayumu is on ' + this.ayumuAt);
+      if (this.ayumuAt >= this.level) {
+        if (!this.roundClaimed) {
+          this.roundClaimed = true;
+          this.ayumuWins += 1;
+          this.paintRace('Ayumu finished the span first');
+        }
+        return;
+      }
+      this.ayumuTimer = setTimeout(step, pace);
+    };
+    this.ayumuTimer = setTimeout(step, pace);
+  }
+
+  stopAyumu() {
+    if (this.ayumuTimer) {
+      clearTimeout(this.ayumuTimer);
+      this.ayumuTimer = null;
+    }
+  }
+
+  logClick(correct, rt, value) {
+    if (!window.brainState) return;
+    window.brainState.logTrial({
+      gameId: 'chimp-test',
+      domain: 'memory',
+      correct,
+      rt,
+      tag: 'n' + value
+    });
+  }
+
   handleTileClick(tile, value) {
+    const rt = Date.now() - (this.choiceStartedAt || Date.now());
+    this.choiceStartedAt = Date.now();
+
     if (value === this.currentExpected) {
-      // First click masks all tiles
       if (this.currentExpected === 1 && !this.isMasked) {
         this.isMasked = true;
         this.tiles.forEach(t => t.classList.add('masked'));
+        this.startAyumu();
       }
 
       tile.classList.remove('masked');
       tile.classList.add('correct');
       if (window.soundEngine) window.soundEngine.playTap(500 + value * 50);
+      this.logClick(true, rt, value);
 
       this.currentExpected++;
 
-      // Completed round successfully!
       if (this.currentExpected > this.level) {
+        this.stopAyumu();
+        if (!this.roundClaimed) {
+          this.roundClaimed = true;
+          this.youWins += 1;
+          this.paintRace('You finished the span first');
+        }
         if (window.soundEngine) window.soundEngine.playSuccess();
         this.level++;
         setTimeout(() => this.startRound(), 800);
       }
     } else {
-      // Wrong tile click!
       tile.classList.remove('masked');
       tile.classList.add('wrong');
       if (window.soundEngine) window.soundEngine.playError();
+      this.logClick(false, rt, value);
+      this.stopAyumu();
 
-      // Reveal all tiles
       this.tiles.forEach(t => {
         t.classList.remove('masked');
-        if (parseInt(t.dataset.value) === this.currentExpected) {
+        if (parseInt(t.dataset.value, 10) === this.currentExpected) {
           t.style.borderColor = '#00f0ff';
         }
       });
@@ -1124,14 +1580,17 @@ class ChimpTestGame {
   }
 
   gameOver() {
-    const finalScore = (this.level - 1) * 280;
-    const ayumuComp = this.level >= 9
-      ? 'Chimpanzee Master: You rival Ayumu’s legendary memory!'
-      : this.level >= 7
-      ? 'Superior Human: Outperforming 85% of adult humans!'
-      : 'Average Human: Strong baseline, keep training your visuospatial buffer.';
+    this.stopAyumu();
+    const span = this.level - 1;
+    const finalScore = span * 280 + this.youWins * 70;
+    const race = 'You ' + this.youWins + ' · Ayumu ' + this.ayumuWins;
+    const ayumuComp = span >= 9
+      ? 'Span ' + span + '. ' + race + '. That is Ayumu’s territory.'
+      : span >= 7
+      ? 'Span ' + span + '. ' + race + '. The rival will be faster next time.'
+      : 'Span ' + span + '. ' + race + '. Ayumu is still giving you room.';
 
-    if (window.confettiEngine && this.level >= 7) {
+    if (window.confettiEngine && span >= 7) {
       window.confettiEngine.fire(90);
       window.soundEngine.playVictory();
     }
@@ -1140,13 +1599,22 @@ class ChimpTestGame {
       gameId: 'chimp-test',
       score: finalScore,
       domain: 'memory',
-      accuracy: `Max: ${this.level - 1} Numbers`,
+      accuracy: `Max: ${span} Numbers`,
       details: ayumuComp,
-      performanceRatio: Math.min(1, (this.level - 1) / 10)
+      performanceRatio: Math.min(1, span / 10),
+      signals: {
+        span,
+        youWins: this.youWins,
+        ayumuWins: this.ayumuWins,
+        duel: this.duel,
+        duelCode: this.duel && window.brainState ? window.brainState.duelCode() : ''
+      }
     });
   }
 
-  destroy() {}
+  destroy() {
+    this.stopAyumu();
+  }
 }
 
 window.ChimpTestGame = ChimpTestGame;
@@ -1174,9 +1642,12 @@ class StroopGame {
     this.totalAttempts = 0;
     this.correctAttempts = 0;
     this.responseTimes = [];
+    this.trialLog = [];
     this.lastWordTime = Date.now();
 
     this.currentInkColor = null;
+    this.currentWord = null;
+    this.currentCongruent = false;
 
     this.render();
     this.startTimer();
@@ -1246,6 +1717,8 @@ class StroopGame {
     }
 
     this.currentInkColor = inkItem.name;
+    this.currentWord = wordItem.name;
+    this.currentCongruent = wordItem.name === inkItem.name;
     this.wordEl.innerText = wordItem.name;
     this.wordEl.style.color = inkItem.hex;
     this.wordEl.style.transform = 'scale(1.05)';
@@ -1256,8 +1729,19 @@ class StroopGame {
     const elapsed = Date.now() - this.lastWordTime;
     this.responseTimes.push(elapsed);
     this.totalAttempts++;
+    const correct = selectedColor === this.currentInkColor;
+    this.trialLog.push({ correct, rt: elapsed, congruent: this.currentCongruent });
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'stroop',
+        domain: 'focus',
+        correct,
+        rt: elapsed,
+        tag: this.currentCongruent ? 'congruent' : 'incongruent'
+      });
+    }
 
-    if (selectedColor === this.currentInkColor) {
+    if (correct) {
       // Correct!
       this.correctAttempts++;
       this.streak++;
@@ -1298,6 +1782,10 @@ class StroopGame {
     const avgRt = this.responseTimes.length > 0
       ? Math.round(this.responseTimes.reduce((a, b) => a + b, 0) / this.responseTimes.length)
       : 0;
+    const mean = (rows) => rows.length ? rows.reduce((a, b) => a + b, 0) / rows.length : 0;
+    const cong = this.trialLog.filter(t => t.correct && t.congruent).map(t => t.rt);
+    const inc = this.trialLog.filter(t => t.correct && !t.congruent).map(t => t.rt);
+    const interferenceMs = cong.length && inc.length ? mean(inc) - mean(cong) : 0;
 
     if (window.confettiEngine && this.score > 800) {
       window.confettiEngine.fire(80);
@@ -1309,8 +1797,9 @@ class StroopGame {
       score: this.score,
       domain: 'focus',
       accuracy: `${accuracy}%`,
-      details: `Avg RT: ${avgRt}ms | Correct: ${this.correctAttempts} / ${this.totalAttempts}`,
-      performanceRatio: Math.min(1, this.score / 2000)
+      details: `Avg RT: ${avgRt}ms | Ink cost: ${Math.round(interferenceMs)}ms | Correct: ${this.correctAttempts} / ${this.totalAttempts}`,
+      performanceRatio: Math.min(1, this.score / 2000),
+      signals: { interferenceMs, avgRt }
     });
   }
 
@@ -1335,6 +1824,8 @@ class SchulteGridGame {
     this.startTime = null;
     this.timerInterval = null;
     this.elapsedMs = 0;
+    this.lastHit = null;
+    this.misses = 0;
 
     this.render();
     this.start();
@@ -1389,6 +1880,7 @@ class SchulteGridGame {
     });
 
     this.startTime = Date.now();
+    this.lastHit = this.startTime;
     this.timerInterval = setInterval(() => {
       this.elapsedMs = Date.now() - this.startTime;
       this.timerEl.innerText = (this.elapsedMs / 1000).toFixed(2);
@@ -1396,9 +1888,21 @@ class SchulteGridGame {
   }
 
   handleTileClick(tile, num) {
+    const now = Date.now();
+    const rt = now - (this.lastHit || now);
     if (num === this.nextTarget) {
       tile.classList.add('found');
       if (window.soundEngine) window.soundEngine.playTap(450 + num * 25);
+      if (window.brainState) {
+        window.brainState.logTrial({
+          gameId: 'schulte-grid',
+          domain: 'speed',
+          correct: true,
+          rt,
+          tag: 'n' + num
+        });
+      }
+      this.lastHit = now;
 
       this.nextTarget++;
 
@@ -1408,6 +1912,16 @@ class SchulteGridGame {
         this.targetEl.innerText = this.nextTarget;
       }
     } else {
+      this.misses += 1;
+      if (window.brainState) {
+        window.brainState.logTrial({
+          gameId: 'schulte-grid',
+          domain: 'speed',
+          correct: false,
+          rt,
+          tag: 'miss'
+        });
+      }
       if (window.soundEngine) window.soundEngine.playError();
       tile.style.borderColor = 'var(--crimson-alert)';
       setTimeout(() => tile.style.borderColor = '', 300);
@@ -1439,7 +1953,8 @@ class SchulteGridGame {
       domain: 'speed',
       accuracy: `${totalSec.toFixed(2)}s`,
       details: rating,
-      performanceRatio: Math.max(0.2, Math.min(1, (60 - totalSec) / 40))
+      performanceRatio: Math.max(0.2, Math.min(1, (60 - totalSec) / 40)),
+      signals: { seconds: totalSec, misses: this.misses }
     });
   }
 
@@ -1528,10 +2043,10 @@ class MemoryMatrixGame {
     this.gridEl.innerHTML = '';
     const total = this.gridSize * this.gridSize;
 
-    // Pick random target indices
     while (this.targetCells.size < this.activeCount) {
       this.targetCells.add(Math.floor(Math.random() * total));
     }
+    this.palace = { size: this.gridSize, cells: Array.from(this.targetCells) };
 
     const cells = [];
     for (let i = 0; i < total; i++) {
@@ -1555,6 +2070,7 @@ class MemoryMatrixGame {
       setTimeout(() => {
         cells.forEach(c => c.classList.remove('flash'));
         this.isInputAllowed = true;
+        this.recallStarted = Date.now();
       }, 1200);
     }, 400);
   }
@@ -1562,6 +2078,17 @@ class MemoryMatrixGame {
   handleCellClick(cell, idx) {
     if (!this.isInputAllowed || this.selectedCells.has(idx)) return;
     this.selectedCells.add(idx);
+
+    const rt = Date.now() - (this.recallStarted || Date.now());
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'memory-matrix',
+        domain: 'memory',
+        correct: this.targetCells.has(idx),
+        rt,
+        tag: 'cell'
+      });
+    }
 
     if (this.targetCells.has(idx)) {
       cell.classList.add('selected-correct');
@@ -1613,7 +2140,8 @@ class MemoryMatrixGame {
       domain: 'memory',
       accuracy: `Level ${this.level} (${this.gridSize}x${this.gridSize})`,
       details: `Recalled up to ${this.activeCount} simultaneous spatial coordinates`,
-      performanceRatio: Math.min(1, this.level / 10)
+      performanceRatio: Math.min(1, this.level / 10),
+      signals: { palace: this.palace || null }
     });
   }
 
@@ -2329,6 +2857,7 @@ class SpeedMathGame {
       answer = a * b;
     }
 
+    this.posedAt = Date.now();
     this.correctAnswer = answer;
     this.eqEl.innerText = `${a} ${op === '*' ? '×' : op} ${b} = ?`;
 
@@ -2355,7 +2884,17 @@ class SpeedMathGame {
 
   handleChoice(val) {
     this.totalSolved++;
-    if (val === this.correctAnswer) {
+    const correct = val === this.correctAnswer;
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'speed-math',
+        domain: 'speed',
+        correct,
+        rt: Date.now() - (this.posedAt || Date.now()),
+        tag: 'math'
+      });
+    }
+    if (correct) {
       this.correctCount++;
       this.streak++;
       const mult = Math.min(5, 1 + Math.floor(this.streak / 4));
@@ -2835,9 +3374,16 @@ class MentalRotationGame {
     this.score = 0;
     this.correctCount = 0;
     this.startTime = null;
+    this.yaw = 0.5;
+    this.pitch = 0.4;
+    this._dragging = false;
+    this._alive = true;
+    this.trials = [];
 
     this.render();
+    this.bindSpin();
     this.startRound();
+    this.spinLoop();
   }
 
   render() {
@@ -2852,11 +3398,11 @@ class MentalRotationGame {
 
           <div class="rotation-reference-card">
             <span class="rotation-reference-label">Reference 3D Object</span>
-            <canvas class="rotation-canvas" id="rot-ref-canvas" width="160" height="160"></canvas>
+            <canvas class="rotation-canvas" id="rot-ref-canvas" width="220" height="220"></canvas>
           </div>
 
           <div style="font-size:0.85rem; color:var(--text-secondary); text-align:center;">
-            Which of the 4 objects below is an <strong>exact 3D rotation</strong> of the reference object?
+            Drag the reference solid and turn it in your hand. Then pick the <strong>exact rotation</strong>. Mirrors do not count.
           </div>
 
           <div class="rotation-candidates-grid" id="rot-candidates">
@@ -2871,6 +3417,107 @@ class MentalRotationGame {
     this.accEl = this.container.querySelector('#rot-acc');
     this.refCanvas = this.container.querySelector('#rot-ref-canvas');
     this.candidatesEl = this.container.querySelector('#rot-candidates');
+    if (this.refCanvas) {
+      this.refCanvas.style.touchAction = 'none';
+      this.refCanvas.style.cursor = 'grab';
+    }
+  }
+
+  bindSpin() {
+    const canvas = this.refCanvas;
+    if (!canvas || !canvas.addEventListener) return;
+    canvas.addEventListener('pointerdown', (e) => {
+      this._dragging = true;
+      this._lx = e.clientX;
+      this._ly = e.clientY;
+      if (canvas.setPointerCapture) {
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!this._dragging) return;
+      const dx = e.clientX - this._lx;
+      const dy = e.clientY - this._ly;
+      this._lx = e.clientX;
+      this._ly = e.clientY;
+      this.yaw += dx * 0.012;
+      this.pitch = Math.max(-1.15, Math.min(1.15, this.pitch + dy * 0.012));
+      if (this.referenceShape) this.drawSolid(canvas, this.referenceShape, '#00f0ff');
+    });
+    const release = () => { this._dragging = false; };
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', release);
+  }
+
+  spinLoop() {
+    if (!this._alive || typeof requestAnimationFrame !== 'function') return;
+    if (!this._dragging && this.refCanvas && this.referenceShape) {
+      this.yaw += 0.008;
+      this.drawSolid(this.refCanvas, this.referenceShape, '#00f0ff');
+    }
+    this._spin = requestAnimationFrame(() => this.spinLoop());
+  }
+
+  project(x, y, z, w, h) {
+    const cy = Math.cos(this.yaw);
+    const sy = Math.sin(this.yaw);
+    const x1 = x * cy + z * sy;
+    const z1 = -x * sy + z * cy;
+    const cx = Math.cos(this.pitch);
+    const sx = Math.sin(this.pitch);
+    const y1 = y * cx - z1 * sx;
+    const z2 = y * sx + z1 * cx;
+    const persp = 9 / (9 + z2);
+    const s = 36 * persp;
+    return { x: w / 2 + x1 * s, y: h / 2 - y1 * s + 6, z: z2 };
+  }
+
+  drawSolid(canvas, cubes, color) {
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const faces = [];
+    const offs = [-0.46, 0.46];
+    cubes.forEach(c => {
+      const corners = [];
+      offs.forEach(dx => {
+        offs.forEach(dy => {
+          offs.forEach(dz => {
+            corners.push(this.project(c.x + dx, c.y + dy, c.z + dz, w, h));
+          });
+        });
+      });
+      const quads = [
+        [0, 2, 6, 4],
+        [1, 5, 7, 3],
+        [0, 4, 5, 1],
+        [2, 3, 7, 6],
+        [0, 1, 3, 2],
+        [4, 6, 7, 5]
+      ];
+      const shades = [0.35, 0.55, 0.42, 0.95, 0.5, 0.72];
+      quads.forEach((quad, i) => {
+        const pts = quad.map(idx => corners[idx]);
+        const depth = pts.reduce((sum, p) => sum + p.z, 0) / 4;
+        faces.push({ pts, depth, shade: shades[i] });
+      });
+    });
+    faces.sort((a, b) => b.depth - a.depth);
+    faces.forEach(face => {
+      ctx.beginPath();
+      face.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.28 + face.shade * 0.62;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
   }
 
   /* Procedural 3D polycube generation */
@@ -2925,7 +3572,11 @@ class MentalRotationGame {
     this.roundEl.innerText = this.currentRound + 1;
 
     const baseShape = this.generateShape();
-    this.drawIsometric(this.refCanvas, baseShape, '#00f0ff');
+    this.referenceShape = baseShape;
+    this.yaw = 0.4 + Math.random() * 0.6;
+    this.pitch = 0.25;
+    if (this.refCanvas) this.drawSolid(this.refCanvas, baseShape, '#00f0ff');
+    if (!this.candidatesEl) return;
 
     // 1 Correct rotation, 3 False (mirrored or altered)
     const candidates = [];
@@ -3052,6 +3703,16 @@ class MentalRotationGame {
 
   handlePick(card, isMatch) {
     const elapsed = Date.now() - this.startTime;
+    this.trials.push({ correct: !!isMatch, rt: elapsed });
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'mental-rotation',
+        domain: 'spatial',
+        correct: !!isMatch,
+        rt: elapsed,
+        tag: 'rotation'
+      });
+    }
 
     if (isMatch) {
       this.correctCount++;
@@ -3091,15 +3752,233 @@ class MentalRotationGame {
       score: this.score,
       domain: 'spatial',
       accuracy: `${this.correctCount}/${this.totalRounds} Correct`,
-      details: 'Evaluated 3D parietal mental rotation vectors',
-      performanceRatio: this.correctCount / this.totalRounds
+      details: 'You turned the solid, then matched it against the mirrors.',
+      performanceRatio: this.correctCount / this.totalRounds,
+      signals: {
+        meanRt: this.trials.length
+          ? Math.round(this.trials.reduce((s, t) => s + t.rt, 0) / this.trials.length)
+          : 0
+      }
     });
   }
 
-  destroy() {}
+  destroy() {
+    this._alive = false;
+    if (this._spin && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this._spin);
+    }
+  }
 }
 
 window.MentalRotationGame = MentalRotationGame;
+/* ==========================================================================
+   NEUROLAB - Interference Protocol
+   One board, two tasks. The cost of switching is the score that matters.
+   SCAN: tap the requested number while a color-word shouts from the center.
+   INK: name the ink and ignore the number.
+   ========================================================================== */
+
+class InterferenceGame {
+  constructor(container, onComplete) {
+    this.container = container;
+    this.onComplete = onComplete;
+    this.colors = [
+      { name: 'Red', hex: '#ef4444', key: '1' },
+      { name: 'Blue', hex: '#00f0ff', key: '2' },
+      { name: 'Green', hex: '#10b981', key: '3' },
+      { name: 'Yellow', hex: '#f59e0b', key: '4' }
+    ];
+    this.totalTrials = 12;
+    this.trialIndex = 0;
+    this.score = 0;
+    this.correctCount = 0;
+    this.nextNumber = 1;
+    this.trials = [];
+    this.schedule = [];
+    let mode = 'scan';
+    for (let i = 0; i < this.totalTrials; i++) {
+      if (i > 0 && i % 3 === 0) mode = mode === 'scan' ? 'ink' : 'scan';
+      this.schedule.push(mode);
+    }
+    this.alive = true;
+
+    this.render();
+    this.present();
+  }
+
+  render() {
+    this.container.innerHTML = `
+      <div class="game-stage-wrapper">
+        <div class="ix-container">
+          <div class="nback-status-pill">
+            <span>Trial: <strong id="ix-trial">1</strong> / ${this.totalTrials}</span>
+            <span>Score: <strong id="ix-score">0</strong></span>
+            <span>Task: <strong id="ix-task">SCAN</strong></span>
+          </div>
+
+          <div class="ix-banner" id="ix-banner">SCAN 1</div>
+          <div class="stroop-word ix-word" id="ix-word">READY</div>
+          <p class="ix-hint">Obey the banner. SCAN means the number. INK means the color of the ink, never the word.</p>
+
+          <div class="ix-numbers" id="ix-numbers"></div>
+          <div class="stroop-options ix-colors" id="ix-colors">
+            ${this.colors.map(c => `
+              <button class="btn-stroop-color" data-color="${c.name}" style="border-color:${c.hex}; color:${c.hex};">
+                ${c.name} <span style="font-size:0.75rem; opacity:0.6;">[${c.key}]</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.trialEl = this.container.querySelector('#ix-trial');
+    this.scoreEl = this.container.querySelector('#ix-score');
+    this.taskEl = this.container.querySelector('#ix-task');
+    this.bannerEl = this.container.querySelector('#ix-banner');
+    this.wordEl = this.container.querySelector('#ix-word');
+    this.numbersEl = this.container.querySelector('#ix-numbers');
+
+    this.container.querySelectorAll('.btn-stroop-color').forEach(btn => {
+      btn.addEventListener('click', () => this.answer('ink', btn.dataset.color));
+    });
+
+    this.keyHandler = (e) => {
+      const match = this.colors.find(c => c.key === e.key);
+      if (match) this.answer('ink', match.name);
+      if (e.key >= '1' && e.key <= '9' && e.target && e.target.tagName !== 'INPUT') {
+        /* Color keys share 1-4. Number keys only count when no color owns them
+           and the player is in SCAN. Digits 5-9 are always numbers. */
+      }
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+
+  present() {
+    if (!this.alive) return;
+    const mode = this.schedule[this.trialIndex];
+    this.mode = mode;
+    this.shownAt = Date.now();
+    this.locked = false;
+
+    const word = this.colors[Math.floor(Math.random() * this.colors.length)];
+    let ink = word;
+    if (Math.random() < 0.75) {
+      const others = this.colors.filter(c => c.name !== word.name);
+      ink = others[Math.floor(Math.random() * others.length)];
+    }
+    this.inkName = ink.name;
+    this.wordName = word.name;
+    if (this.wordEl) {
+      this.wordEl.innerText = word.name.toUpperCase();
+      this.wordEl.style.color = ink.hex;
+    }
+
+    const target = ((this.nextNumber - 1) % 8) + 1;
+    this.scanTarget = target;
+    const pool = new Set([target]);
+    while (pool.size < 6) pool.add(1 + Math.floor(Math.random() * 8));
+    const nums = Array.from(pool).sort(() => Math.random() - 0.5);
+
+    if (this.numbersEl) {
+      this.numbersEl.innerHTML = '';
+      nums.forEach(n => {
+        const btn = document.createElement('button');
+        btn.className = 'ix-num' + (mode === 'ink' ? ' dim' : '');
+        btn.innerText = String(n);
+        btn.addEventListener('click', () => this.answer('scan', n));
+        this.numbersEl.appendChild(btn);
+      });
+    }
+
+    if (this.trialEl) this.trialEl.innerText = String(this.trialIndex + 1);
+    if (this.taskEl) this.taskEl.innerText = mode.toUpperCase();
+    if (this.bannerEl) {
+      this.bannerEl.innerText = mode === 'scan' ? 'SCAN ' + target : 'INK';
+      this.bannerEl.dataset.mode = mode;
+    }
+    this.container.querySelectorAll('.btn-stroop-color').forEach(btn => {
+      btn.classList.toggle('dim', mode === 'scan');
+    });
+  }
+
+  answer(channel, value) {
+    if (this.locked || !this.alive) return;
+    this.locked = true;
+    const rt = Date.now() - this.shownAt;
+    const switched = this.trialIndex > 0 && this.schedule[this.trialIndex] !== this.schedule[this.trialIndex - 1];
+    let correct = false;
+    if (this.mode === 'scan') correct = channel === 'scan' && value === this.scanTarget;
+    else correct = channel === 'ink' && value === this.inkName;
+
+    if (correct) {
+      this.correctCount += 1;
+      const bonus = switched ? 1.4 : 1;
+      this.score += Math.round(Math.max(40, 220 - rt / 8) * bonus);
+      if (this.mode === 'scan') this.nextNumber += 1;
+      if (window.soundEngine) window.soundEngine.playTap(640);
+    } else if (window.soundEngine) {
+      window.soundEngine.playError();
+    }
+
+    this.trials.push({ correct, rt, switched, mode: this.mode });
+    if (window.brainState) {
+      window.brainState.logTrial({
+        gameId: 'interference',
+        domain: 'focus',
+        correct,
+        rt,
+        tag: switched ? 'switch' : 'repeat'
+      });
+    }
+    if (this.scoreEl) this.scoreEl.innerText = String(this.score);
+
+    this.trialIndex += 1;
+    if (this.trialIndex >= this.totalTrials) {
+      setTimeout(() => this.finish(), 420);
+    } else {
+      setTimeout(() => this.present(), 280);
+    }
+  }
+
+  mean(list) {
+    if (!list.length) return 0;
+    return list.reduce((a, b) => a + b, 0) / list.length;
+  }
+
+  finish() {
+    this.alive = false;
+    window.removeEventListener('keydown', this.keyHandler);
+    const accuracy = this.trials.length ? this.correctCount / this.trials.length : 0;
+    const switchRts = this.trials.filter(t => t.switched && t.correct).map(t => t.rt);
+    const repeatRts = this.trials.filter(t => !t.switched && t.correct).map(t => t.rt);
+    const switchCost = (switchRts.length && repeatRts.length) ? this.mean(switchRts) - this.mean(repeatRts) : 0;
+    const speed = Math.max(0, Math.min(1, (900 - this.mean(this.trials.map(t => t.rt))) / 700));
+    const ratio = Math.max(0, Math.min(1, accuracy * 0.75 + speed * 0.25));
+
+    if (window.confettiEngine && accuracy >= 0.75) {
+      window.confettiEngine.fire(70);
+      if (window.soundEngine) window.soundEngine.playVictory();
+    }
+
+    this.onComplete({
+      gameId: 'interference',
+      score: this.score,
+      domain: 'focus',
+      accuracy: Math.round(accuracy * 100) + '%',
+      details: 'Switch cost ' + Math.round(switchCost) + ' ms across ' + this.trials.length + ' trials.',
+      performanceRatio: ratio,
+      signals: { switchCostMs: switchCost, accuracy }
+    });
+  }
+
+  destroy() {
+    this.alive = false;
+    if (this.keyHandler) window.removeEventListener('keydown', this.keyHandler);
+  }
+}
+
+window.InterferenceGame = InterferenceGame;
 /* ==========================================================================
    NEUROLAB - Core Application Controller & Platform Orchestrator
    ========================================================================== */
@@ -3206,6 +4085,20 @@ class AppController {
         classRef: 'StroopGame'
       },
       {
+        id: 'interference',
+        title: 'Interference Protocol',
+        category: 'focus',
+        icon: '◎',
+        accent: '#ff3366',
+        desc: 'Two tasks share one board. SCAN the number, or name the INK. The milliseconds you lose on the switch are the measurement.',
+        neuroscience: 'Task-switch cost is the time the prefrontal cortex spends reconfiguring a rule. The color word is there to steal that time.',
+        difficulty: 'Hard',
+        duration: '~90 sec',
+        lab: 'Dual-task cost',
+        pips: 3,
+        classRef: 'InterferenceGame'
+      },
+      {
         id: 'tower-hanoi',
         title: 'Tower of Hanoi',
         category: 'logic',
@@ -3282,6 +4175,7 @@ class AppController {
     this.activeGameInstance = null;
     this.activeGameMeta = null;
     this.dailyWorkoutActive = false;
+    this.duelMode = false;
 
     this.initDOM();
     this.renderStats();
@@ -3291,7 +4185,9 @@ class AppController {
     // Deep-linking support (?game=chimp-test)
     const urlParams = new URLSearchParams(window.location.search);
     const gameParam = urlParams.get('game');
-    if (gameParam && this.gamesCatalog.some(g => g.id === gameParam)) {
+    if (urlParams.get('duel') === '1') {
+      this.launchGame('chimp-test', { duel: true });
+    } else if (gameParam && this.gamesCatalog.some(g => g.id === gameParam)) {
       this.launchGame(gameParam);
     }
   }
@@ -3337,6 +4233,13 @@ class AppController {
     if (barFill) barFill.style.width = `${pct}%`;
     if (barPct) barPct.innerText = `${pct}%`;
 
+    const rx = document.getElementById('workout-rx');
+    if (rx && daily.games) {
+      const names = daily.games.map(id => window.brainState.titleFor(id));
+      rx.innerText = daily.completed ? 'Protocol complete' : 'Protocol · ' + names.join('  ·  ');
+    }
+    this.renderLab();
+
     // Radar Domain Chips
     if (s.domains) {
       const dMem = document.getElementById('chip-val-memory');
@@ -3351,7 +4254,8 @@ class AppController {
       if (dSpa) dSpa.innerText = s.domains.spatial || 60;
     }
 
-    // Daily workout button state
+    this.refreshTabCounts();
+
     const btnDaily = document.getElementById('btn-daily-workout');
     if (btnDaily) {
       if (daily.completed) {
@@ -3525,7 +4429,28 @@ class AppController {
       brand.addEventListener('click', () => this.exitToHub());
     }
 
-    // Daily Workout Button
+    const btnHear = document.getElementById('btn-hear-mind');
+    if (btnHear) {
+      btnHear.addEventListener('click', () => this.replaySession());
+    }
+    const btnDuel = document.getElementById('btn-sealed-duel');
+    if (btnDuel) {
+      btnDuel.addEventListener('click', () => this.startSealedDuel());
+    }
+    const btnPalace = document.getElementById('btn-palace');
+    if (btnPalace) {
+      btnPalace.addEventListener('click', () => this.openPalace());
+    }
+    const btnSummaryHear = document.getElementById('btn-summary-hear');
+    if (btnSummaryHear) {
+      btnSummaryHear.addEventListener('click', () => {
+        if (window.soundEngine) window.soundEngine.playMind();
+        if (window.neuralField && window.brainState) {
+          window.neuralField.replay(window.brainState.data.ledger.slice(-18));
+        }
+      });
+    }
+
     const btnDaily = document.getElementById('btn-daily-workout');
     if (btnDaily) {
       btnDaily.addEventListener('click', () => this.startDailyWorkout());
@@ -3587,9 +4512,14 @@ class AppController {
     btn.title = isMuted ? 'Unmute Audio' : 'Mute Audio';
   }
 
-  launchGame(gameId) {
+  launchGame(gameId, opts) {
     const meta = this.gamesCatalog.find(g => g.id === gameId);
     if (!meta) return;
+    if (opts && Object.prototype.hasOwnProperty.call(opts, 'duel')) {
+      this.duelMode = !!opts.duel;
+    }
+    window.NEUROLAB_DUEL = !!(this.duelMode && gameId === 'chimp-test');
+    if (window.soundEngine) window.soundEngine.phrase = [];
 
     if (this.activeGameInstance && this.activeGameInstance.destroy) {
       this.activeGameInstance.destroy();
@@ -3634,7 +4564,8 @@ class AppController {
       result.gameId,
       result.score,
       result.domain,
-      result.performanceRatio || 0.75
+      result.performanceRatio || 0.75,
+      result.signals || null
     );
 
     this.renderStats();
@@ -3650,6 +4581,8 @@ class AppController {
     if (summaryDet) summaryDet.innerText = result.details || '';
     const summaryNq = document.getElementById('summary-nq-change');
     if (summaryNq) summaryNq.innerText = `Updated Cognitive Quotient (NQ): ${record.nq}`;
+    const summaryLab = document.getElementById('summary-lab');
+    if (summaryLab) summaryLab.innerText = record.note || '';
 
     const newHighBadge = document.getElementById('summary-new-record') || document.getElementById('summary-new-high');
     if (newHighBadge) {
@@ -3671,7 +4604,153 @@ class AppController {
     }
   }
 
+  refreshTabCounts() {
+    const counts = { all: this.gamesCatalog.length };
+    this.gamesCatalog.forEach(game => {
+      counts[game.category] = (counts[game.category] || 0) + 1;
+    });
+    const labels = {
+      all: 'All Games',
+      memory: 'Memory',
+      focus: 'Focus',
+      speed: 'Speed',
+      logic: 'Logic',
+      spatial: 'Spatial'
+    };
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      const cat = btn.dataset.category;
+      const spans = btn.querySelectorAll('span');
+      const label = spans[spans.length - 1];
+      if (label && labels[cat]) label.textContent = `${labels[cat]} (${counts[cat] || 0})`;
+    });
+    const search = document.getElementById('game-search-input');
+    if (search) search.placeholder = `Search ${this.gamesCatalog.length} cognitive drills...`;
+  }
+
+  renderLab() {
+    const note = document.getElementById('lab-note');
+    if (note && window.brainState) note.innerText = window.brainState.labNote();
+    const code = document.getElementById('duel-code');
+    if (code && window.brainState) code.innerText = window.brainState.duelCode();
+    this.drawSpark();
+  }
+
+  drawSpark() {
+    const canvas = document.getElementById('nq-spark');
+    if (!canvas || !canvas.getContext || !window.brainState) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width || 280;
+    const h = rect.height || 48;
+    canvas.width = Math.max(1, Math.floor(w * dpr));
+    canvas.height = Math.max(1, Math.floor(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const hist = window.brainState.data.nqHistory || [];
+    if (hist.length < 2) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px JetBrains Mono, monospace';
+      ctx.fillText('The NQ trace appears after two drills', 4, h * 0.62);
+      return;
+    }
+    const vals = hist.map(point => point.nq);
+    const min = Math.min.apply(null, vals) - 4;
+    const max = Math.max.apply(null, vals) + 4;
+    const span = Math.max(1, max - min);
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      const x = 4 + (i / (vals.length - 1)) * (w - 8);
+      const y = h - 8 - ((v - min) / span) * (h - 16);
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    });
+    ctx.strokeStyle = '#00f5ff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(0, 245, 255, 0.45)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  replaySession() {
+    const trials = window.brainState ? window.brainState.data.ledger.slice(-24) : [];
+    if (window.soundEngine) window.soundEngine.playMind(trials);
+    if (window.neuralField) window.neuralField.replay(trials);
+  }
+
+  startSealedDuel() {
+    this.dailyWorkoutActive = false;
+    this.launchGame('chimp-test', { duel: true });
+  }
+
+  openPalace() {
+    const modal = document.getElementById('palace-modal');
+    const body = document.getElementById('palace-body');
+    if (!modal || !body) return;
+    const palace = window.brainState && window.brainState.data.palace;
+    if (!palace || !palace.cells || !palace.cells.length) {
+      body.innerHTML = '<p class="palace-empty">Play Memory Matrix. The last pattern you saw is left in this room, and you can walk back in to recall it.</p>';
+      modal.classList.add('active');
+      return;
+    }
+    const size = palace.size || 3;
+    const targets = new Set(palace.cells);
+    body.innerHTML = `
+      <p class="palace-empty">The pattern is dark. Tap the cells you remember, then reveal the room.</p>
+      <div class="palace-grid" id="palace-grid" style="grid-template-columns: repeat(${size}, 52px);"></div>
+    `;
+    const grid = body.querySelector('#palace-grid');
+    const picked = new Set();
+    for (let i = 0; i < size * size; i++) {
+      const cell = document.createElement('button');
+      cell.className = 'palace-cell';
+      cell.type = 'button';
+      cell.addEventListener('click', () => {
+        if (picked.has(i)) {
+          picked.delete(i);
+          cell.classList.remove('picked');
+        } else {
+          picked.add(i);
+          cell.classList.add('picked');
+        }
+      });
+      grid.appendChild(cell);
+    }
+    const reveal = document.createElement('button');
+    reveal.className = 'btn-primary';
+    reveal.type = 'button';
+    reveal.style.marginTop = '1rem';
+    reveal.innerText = 'Reveal the room';
+    reveal.addEventListener('click', () => {
+      let hits = 0;
+      grid.querySelectorAll('.palace-cell').forEach((cell, i) => {
+        const wanted = targets.has(i);
+        const chose = picked.has(i);
+        cell.classList.toggle('hit', wanted && chose);
+        cell.classList.toggle('miss', !wanted && chose);
+        cell.classList.toggle('ghost', wanted && !chose);
+        if (wanted && chose) hits += 1;
+      });
+      const ratio = targets.size ? hits / targets.size : 0;
+      if (window.brainState) {
+        window.brainState.logTrial({
+          gameId: 'memory-matrix',
+          domain: 'memory',
+          correct: ratio >= 0.99,
+          rt: 0,
+          tag: 'palace'
+        });
+      }
+      reveal.innerText = hits + ' / ' + targets.size + ' cells returned';
+      reveal.disabled = true;
+    });
+    body.appendChild(reveal);
+    modal.classList.add('active');
+  }
+
   startDailyWorkout() {
+    this.duelMode = false;
     this.dailyWorkoutActive = true;
     const daily = window.brainState.data.dailyWorkout;
     const gameId = daily.games[daily.progress] || daily.games[0];
@@ -3721,6 +4800,8 @@ class AppController {
     this.activeGameInstance = null;
     this.activeGameMeta = null;
     this.dailyWorkoutActive = false;
+    this.duelMode = false;
+    window.NEUROLAB_DUEL = false;
 
     this.arenaSection.classList.remove('active');
     this.heroSection.style.display = 'grid';
